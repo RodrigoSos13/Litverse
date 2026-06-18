@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #e6edf7;
+  background: #09111f;
+  font-family: "Trebuchet MS", sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: #e6edf7;
+  background-color: #09111f;
+  background-image: linear-gradient(180deg, #0b1324 0%, #09111f 52%, #070d18 100%);
+  background-attachment: fixed;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@layer base {
+  input,
+  textarea,
+  select {
+    background-color: #152235;
+    border-color: #2b3950;
+    color: #e6edf7;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #95a6bf;
+  }
+}

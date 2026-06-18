@@ -1,0 +1,19 @@
+{
+  "name": "litverse-backend",
+  "version": "1.0.0",
+  "description": "Backend API for LitVerse literary social network",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "db:start": "bash ./scripts/start-local-mongo.sh",
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "seed": "node src/seed.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.6.1"
+  }
+}

@@ -245,7 +245,7 @@ function BookPage() {
                     onClick={() =>
                       setActiveReadingMenu((current) => (current === "rating" ? null : "rating"))
                     }
-                    className="rounded-full bg-copper px-6 py-3 font-semibold text-midnight transition hover:brightness-110"
+                    className="rounded-full bg-gradient-to-r from-forest to-berry px-6 py-3 font-semibold text-white transition hover:brightness-110"
                   >
                     Avaliar
                   </button>

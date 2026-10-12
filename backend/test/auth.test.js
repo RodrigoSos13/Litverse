@@ -27,7 +27,7 @@ before(async () => {
     mongo.stdout.on("data", data => { if (data.toString().includes("Waiting for connections")) { clearTimeout(timer); resolve(); } });
   });
   await mongoose.connect("mongodb://127.0.0.1:27941/auth_test");
-  await User.init(); await Session.init();
+  await User.init(); await Session.init(); await Book.init();
   server = app.listen(0, "127.0.0.1");
   await new Promise(resolve => server.once("listening", resolve));
   base = `http://127.0.0.1:${server.address().port}/api`;
@@ -85,6 +85,76 @@ test("visitar perfil e forjar ID não permite agir como outro usuário", async (
   assert.equal(ownEdit.data.usuario, "test");
   assert.equal(ownEdit.data.email, "test@example.com");
 });
+test("busca local aplica todos os termos antes de consultar e não retorna sugestões iniciais", async () => {
+  const matching = await Book.create({ titulo: "O Caminho dos Reis", autor: "Brandon Sanderson", genero: "Fantasia", descricao: "Livro de teste", idioma: "pt" });
+  await Book.create({ titulo: "Dom Casmurro", autor: "Machado de Assis", genero: "Romance", descricao: "Livro de teste", idioma: "pt" });
+  const result = await request("/books?search=Brandon%20Sanderson");
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.data.map(book => book._id), [String(matching._id)]);
+  assert.deepEqual((await request("/books?search=autor%20inexistente")).data, []);
+  assert.deepEqual((await request("/books?search=%25%25")).data, []);
+});
+test("Google Books exige login e configuração, importa sem duplicar e preserva avaliações locais", async () => {
+  assert.equal((await request("/books/google/search?q=test", { session: null })).status, 401);
+  assert.equal((await request("/books/google/import", { method: "POST", session: null, body: { googleBooksId: "test_volume" } })).status, 401);
+  const previousKey = process.env.GOOGLE_BOOKS_API_KEY;
+  const originalFetch = globalThis.fetch;
+  try {
+    delete process.env.GOOGLE_BOOKS_API_KEY;
+    const unavailable = await request("/books/google/search?q=configuration_test");
+    assert.equal(unavailable.status, 503);
+    assert.equal(unavailable.data.code, "GOOGLE_BOOKS_NOT_CONFIGURED");
+    process.env.GOOGLE_BOOKS_API_KEY = "test-private-key";
+    let upstreamCalls = 0;
+    const volume = { id: "test_volume", volumeInfo: { title: "Imported title", authors: ["Imported author"], description: "<p>Imported description</p>", pageCount: 150, publishedDate: "2020", language: "pt", averageRating: 5 } };
+    globalThis.fetch = (url, options) => {
+      if (String(url).startsWith("https://www.googleapis.com/books/v1/volumes")) {
+        upstreamCalls++;
+        return Promise.resolve(Response.json(new URL(url).pathname.endsWith("/test_volume") ? volume : { totalItems: 1, items: [volume] }));
+      }
+      return originalFetch(url, options);
+    };
+    const search = await request("/books/google/search?q=Imported&language=pt");
+    assert.equal(search.status, 200);
+    assert.equal(search.data.livros[0].localId, null);
+    assert.equal(JSON.stringify(search.data).includes("test-private-key"), false);
+    assert.equal((await request("/books/google/search?q=x")).status, 400);
+    assert.equal((await request("/books/google/import", { method: "POST", body: { googleBooksId: "../../invalid" } })).status, 400);
+    const [first, second] = await Promise.all([
+      request("/books/google/import", { method: "POST", body: { googleBooksId: "test_volume", titulo: "Forged title", mediaAvaliacoes: 5 } }),
+      request("/books/google/import", { method: "POST", body: { googleBooksId: "test_volume" } }),
+    ]);
+    assert.ok([200, 201].includes(first.status));
+    assert.ok([200, 201].includes(second.status));
+    assert.equal(first.data._id, second.data._id);
+    assert.equal(first.data.titulo, "Imported title");
+    assert.equal(first.data.totalPaginas, 150);
+    assert.equal(first.data.mediaAvaliacoes, 0);
+    assert.equal(await Book.countDocuments({ googleBooksId: "test_volume" }), 1);
+    assert.equal(upstreamCalls, 2);
+    await Book.findByIdAndUpdate(first.data._id, { mediaAvaliacoes: 4, totalAvaliacoes: 1 });
+    const again = await request("/books/google/import", { method: "POST", body: { googleBooksId: "test_volume" } });
+    assert.equal(again.status, 200);
+    assert.equal(again.data.mediaAvaliacoes, 4);
+    assert.equal(upstreamCalls, 2);
+    const saved = await request("/books/google/search?q=Imported&language=pt");
+    assert.equal(saved.data.livros[0].localId, first.data._id);
+    assert.equal((await request("/books/google/search?q=test&language=en")).status, 400);
+    const english = await Book.create({ titulo: "English", autor: "Author", genero: "Test", descricao: "Test", idioma: "en", googleBooksId: "english_volume" });
+    assert.equal((await request("/books/google/import", { method: "POST", body: { googleBooksId: "english_volume" } })).status, 400);
+    assert.equal((await request("/books")).data.some(book => book._id === String(english._id)), false);
+    assert.equal((await request("/books", { method: "POST", body: { titulo: "English manual", autor: "Author", genero: "Test", descricao: "Test", idioma: "en" } })).status, 400);
+    const manual = await request("/books", { method: "POST", body: { titulo: "Manual title", autor: "Manual author", genero: "Test", descricao: "Manual description", totalPaginas: 200, editora: "Publisher", googleBooksId: "forged_volume" } });
+    assert.equal(manual.status, 201);
+    assert.equal(manual.data.googleBooksId, undefined);
+    assert.equal(manual.data.totalPaginas, 200);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousKey === undefined) delete process.env.GOOGLE_BOOKS_API_KEY;
+    else process.env.GOOGLE_BOOKS_API_KEY = previousKey;
+  }
+});
+
 test("logout revoga token; login valida senha e renova sessão", async () => {
   const previous = cookie;
   assert.equal((await request("/auth/logout", { method: "POST" })).status, 204);

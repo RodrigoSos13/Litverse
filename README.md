@@ -66,6 +66,25 @@ docker compose exec backend npm run user:set-password
 
 O comando pede e-mail e nova senha no terminal administrativo e encerra as sessões anteriores da conta. A instalação Docker não importa automaticamente o banco local antigo.
 
+## Catálogo com Google Books
+
+A página inicial apresenta um único catálogo: livros cadastrados manualmente e encontrados no Google Books usam os mesmos cards e o mesmo botão **Ver livro**. Apenas os livros provenientes do Google mostram a indicação de origem. A busca por título, autor ou ISBN retorna exclusivamente edições em português, em páginas de até 12 resultados, e remove duplicações por ID ou ISBN. Mesmo com o banco vazio, as sugestões iniciais buscam clássicos e títulos conhecidos, como Dom Casmurro, O Pequeno Príncipe, O Hobbit e O Alquimista. Não há seletor para outros idiomas. A busca exige todos os termos no título ou autor e reconhece ISBN com hífens. A paginação usa o cursor real do Google, examinando lotes de até 40 itens até preencher a página, esgotar os resultados ou atingir o limite de tempo de 45 segundos para descartar idiomas incorretos, resultados irrelevantes e duplicações. Livros locais aparecem na primeira página da consulta; respostas de pesquisas anteriores são descartadas. Se a próxima página falhar, os livros da página atual permanecem visíveis para tentar novamente.
+
+Clique em **Ver livro** para abrir a edição. Se ainda não estiver salva, o servidor a importa automaticamente para o LitVerse com título, autores, gênero, sinopse, capa, editora, idioma, ISBN, páginas e ano disponíveis. A importação consulta os dados no servidor e mantém uma única edição por ID do Google, inclusive em requisições simultâneas. Livros já importados abrem diretamente, preservando suas avaliações e interações. Avaliações, comentários e leituras continuam sendo dados da comunidade; as notas do Google não são importadas. O cadastro manual continua disponível.
+
+### Ativar as consultas
+
+1. No [Google Cloud Console](https://console.cloud.google.com/apis/library/books.googleapis.com), selecione ou crie seu projeto e ative a **Books API**.
+2. Crie uma chave em **APIs e serviços → Credenciais** e restrinja seu uso à **Books API**.
+3. Para Docker, copie `.env.example` para `.env` na **raiz do projeto**, se ainda não existir, e preencha `GOOGLE_BOOKS_API_KEY` com sua chave. Para execução sem Docker, preencha essa variável em `backend/.env`.
+4. No Docker, execute `docker compose up --build -d --wait`; na execução local, reinicie o backend.
+
+Não coloque a chave em `VITE_*`, no frontend ou em arquivos versionados. O `.env` continua ignorado pelo Git e pelos builds Docker, e a chave é enviada ao Google somente pelo backend. O auditor de publicação também detecta o formato usual de chaves Google.
+
+A integração depende de conexão externa, chave válida e cota disponível no projeto Google. Sem configuração ou durante uma falha externa, os livros já salvos e o cadastro manual continuam funcionando. As sugestões iniciais usam uma seleção de títulos conhecidos; o servidor mantém apenas resultados em português com títulos correspondentes, descartando guias e materiais sobre essas obras. A busca tem timeout, até duas novas tentativas em falhas temporárias do Google, cache em memória de cinco minutos (até 100 consultas) e limite de 60 solicitações por minuto por usuário e por processo. Cotas do Google são compartilhadas pelo projeto; confira os limites no Console.
+
+Os metadados podem estar incompletos e diferentes edições têm IDs diferentes. O idioma é validado tanto nas respostas externas quanto na importação e na listagem local; edições existentes em outras línguas ou sem idioma confirmado não aparecem no catálogo, mas seus registros não são apagados. Novos cadastros manuais são registrados em português. Capas ausentes recebem uma apresentação local. As páginas exibem atribuição e links para o Google Books. Não é necessário usar login Google: a integração consulta apenas o catálogo público e não envia posts, comentários ou avaliações do LitVerse ao serviço. Consulte a [documentação da API](https://developers.google.com/books/docs/v1/using) e suas [diretrizes de atribuição](https://developers.google.com/books/branding).
+
 ## Preparar para publicar no GitHub
 
 O `.gitignore` exclui ambientes reais, dependências, `dist`, dados locais do MongoDB, dumps, backups, logs, credenciais e arquivos pessoais de ferramentas. Os arquivos `.env.example` contêm somente exemplos de configuração e podem ser publicados. Os `package-lock.json` devem ser publicados para reproduzir a instalação.
@@ -133,7 +152,7 @@ cd ../frontend
 npm run build
 ```
 
-Os testes usam MongoDB temporário isolado e verificam senhas, sessão, cadastro, bloqueio de visitantes, tentativa de falsificar identidade, logout, expiração e limite de tentativas.
+Os testes usam MongoDB temporário isolado e verificam senhas, sessão, cadastro, bloqueio de visitantes, tentativa de falsificar identidade, logout, expiração e limite de tentativas. A integração Google Books é testada com respostas externas simuladas: normalização, paginação, cache, timeout, falhas, proteção da chave e importação simultânea sem duplicar edições. Os testes não consomem sua cota Google nem exigem chave real.
 
 ## Estrutura e dados
 

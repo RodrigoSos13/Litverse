@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import api from "../services/api";
+import GoogleBooksAttribution from "../components/GoogleBooksAttribution";
+import BookCover from "../components/BookCover";
 
 const initialReadingForm = {
   status: "quero_ler",
@@ -164,11 +166,7 @@ function BookPage() {
       <section className="grid gap-6 rounded-[2rem] border border-line bg-panel p-8 shadow-card lg:grid-cols-[260px_1fr]">
         <div>
           <div className="flex h-96 items-center justify-center rounded-3xl bg-panelSoft p-4">
-            <img
-              src={data.livro.urlCapa || "https://placehold.co/260x360"}
-              alt={data.livro.titulo}
-              className="h-full w-full rounded-2xl object-contain"
-            />
+            <BookCover url={data.livro.urlCapa} title={data.livro.titulo} className="h-full w-full rounded-2xl object-contain" />
           </div>
 
           <div className="mt-4 space-y-3 rounded-3xl border border-line bg-panelSoft p-4 text-sm text-mist">
@@ -231,6 +229,8 @@ function BookPage() {
             )}
           </div>
           <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300">{data.livro.descricao}</p>
+          {data.livro.googleBooksUrl && <div className="mt-4"><GoogleBooksAttribution /></div>}
+          {data.livro.googleBooksUrl && <p className="mt-4 text-xs text-mist">Dados e capa fornecidos pelo <a href={data.livro.googleBooksUrl} target="_blank" rel="noopener noreferrer" className="text-copper underline underline-offset-4">Google Books ↗</a>. Avaliações da comunidade LitVerse.</p>}
 
           <div className="mt-6">
             {!currentUserId ? (

@@ -1,27 +1,47 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import api from "../services/api";
-import BookCard from "../components/BookCard";
 import PostCard from "../components/PostCard";
 import Sidebar from "../components/Sidebar";
+import GoogleBooksSearch from "../components/GoogleBooksSearch";
 
 function HomePage() {
-  const [books, setBooks] = useState([]);
+  const [catalog, setCatalog] = useState({ term: null, books: [], error: "", loading: true });
   const [posts, setPosts] = useState([]);
   const { currentUserId, search } = useOutletContext();
+  const term = search.trim();
+  const requestId = useRef(0);
+  const current = catalog.term === term ? catalog : { term, books: [], error: "", loading: true };
 
   useEffect(() => {
-    loadData().catch(console.error);
-  }, [search]);
+    const controller = new AbortController();
+    setCatalog({ term, books: [], error: "", loading: true });
+    const timer = setTimeout(() => loadCatalog(controller.signal, term), 350);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [term]);
 
-  async function loadData() {
-    const [bookResponse, recentPosts] = await Promise.all([
-      api.get("/books", { params: search ? { search } : { featured: true } }),
-      api.get("/posts"),
-    ]);
+  useEffect(() => {
+    const controller = new AbortController();
+    loadPosts(controller.signal);
+    return () => controller.abort();
+  }, []);
 
-    setBooks(bookResponse.data);
-    setPosts(recentPosts.data);
+  async function loadCatalog(signal, searchedTerm = term) {
+    const id = ++requestId.current;
+    setCatalog({ term: searchedTerm, books: [], error: "", loading: true });
+    try {
+      const response = await api.get("/books", { params: searchedTerm ? { search: searchedTerm } : {}, signal });
+      if (!signal?.aborted && id === requestId.current) setCatalog({ term: searchedTerm, books: response.data, error: "", loading: false });
+    } catch (err) {
+      if (!signal?.aborted && id === requestId.current) setCatalog({ term: searchedTerm, books: [], error: "Não foi possível carregar o catálogo. Tente novamente.", loading: false });
+    }
+  }
+
+  async function loadPosts(signal) {
+    try {
+      const response = await api.get("/posts", { signal });
+      if (!signal?.aborted) setPosts(response.data);
+    } catch (err) { if (!signal?.aborted) console.error("Não foi possível carregar os posts."); }
   }
 
   return (
@@ -50,19 +70,7 @@ function HomePage() {
           </div>
         </section>
 
-        <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-3xl text-white">
-              {search ? "Resultados da busca" : "Livros em destaque"}
-            </h2>
-            <span className="text-sm text-mist">{books.length} resultados</span>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {books.map((book) => (
-              <BookCard key={book._id} book={book} />
-            ))}
-          </div>
-        </section>
+        <GoogleBooksSearch query={search} localBooks={current.books} localQuery={current.term} localLoading={current.loading} localError={current.error} onRetryLocal={() => loadCatalog()} />
 
         <section>
           <h2 className="mb-4 font-display text-3xl text-white">Posts recentes</h2>
@@ -72,7 +80,7 @@ function HomePage() {
                 key={post._id}
                 post={post}
                 currentUserId={currentUserId}
-                onRefresh={loadData}
+                onRefresh={() => loadPosts()}
               />
             ))}
             {posts.length === 0 && <p className="text-sm text-mist">Ainda nao ha posts.</p>}

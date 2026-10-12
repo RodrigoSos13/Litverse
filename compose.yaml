@@ -24,6 +24,7 @@ services:
       NODE_ENV: development
       TRUST_PROXY: "1"
       SEED_PASSWORD: ${SEED_PASSWORD:-}
+      GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
       PORT: 5000
       MONGODB_URI: mongodb://mongo:27017/litverse
       FRONTEND_ORIGIN: ${APP_ORIGIN:-http://localhost:8080}

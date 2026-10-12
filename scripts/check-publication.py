@@ -11,6 +11,7 @@ def git(*args):
     return subprocess.check_output(["git", *args], cwd=ROOT)
 
 PATTERNS = {
+    "chave Google API": re.compile(rb"AIza[0-9A-Za-z_-]{35}"),
     "chave privada": re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----"),
     "token GitHub": re.compile(rb"(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})"),
     "chave AWS": re.compile(rb"(?:AKIA|ASIA)[A-Z0-9]{16}"),

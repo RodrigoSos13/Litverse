@@ -53,6 +53,7 @@ async function seed() {
 
   const [hobbit, dune, pride] = await Book.create([
     {
+      idioma: "pt",
       titulo: "O Hobbit",
       autor: "J.R.R. Tolkien",
       genero: "Fantasia",
@@ -63,6 +64,7 @@ async function seed() {
       totalAvaliacoes: 2,  
     },
     {
+      idioma: "pt",
       titulo: "Duna",
       autor: "Frank Herbert",
       genero: "Ficcao Cientifica",
@@ -73,6 +75,7 @@ async function seed() {
       totalAvaliacoes: 1,
     },
     {
+      idioma: "pt",
       titulo: "Orgulho e Preconceito",
       autor: "Jane Austen",
       genero: "Classico",

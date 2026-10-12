@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 
 const bookSchema = new mongoose.Schema(
   {
+    googleBooksId: { type: String, trim: true },
+    googleBooksUrl: { type: String, default: "" },
     titulo: {
       type: String,
       required: true,
@@ -33,7 +35,7 @@ const bookSchema = new mongoose.Schema(
     idioma: {
       type: String,
       trim: true,
-      default: "",
+      default: "pt",
     },
     isbn: {
       type: String,
@@ -74,5 +76,6 @@ bookSchema.index(
   { default_language: "portuguese", language_override: "idiomaTexto" }
 );
 bookSchema.index({ destaque: 1, createdAt: -1 });
+bookSchema.index({ googleBooksId: 1 }, { unique: true, partialFilterExpression: { googleBooksId: { $type: "string" } } });
 
 export const Book = mongoose.model("Livro", bookSchema, "livros");

@@ -39,7 +39,7 @@ function MainLayout() {
                 to="/create-book"
                 className="inline-flex rounded-full bg-gradient-to-r from-forest to-berry px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
               >
-                Cadastrar livro
+                Adicionar livro
               </NavLink>
               <NavLink
                 to={currentUserId ? `/users/${currentUserId}` : "/"}
@@ -58,16 +58,16 @@ function MainLayout() {
                 type="text"
                 value={search}
                 onChange={handleSearchChange}
-                placeholder="Pesquisar livros por titulo ou autor"
+                placeholder="Pesquisar por título, autor ou ISBN"
                 className="w-full rounded-full border border-line bg-panel px-5 py-3 text-sm text-white outline-none transition placeholder:text-mist focus:border-forest"
               />
             </label>
             <div className="flex items-center gap-3"><span className="text-sm text-mist">@{user.usuario}</span><button onClick={handleLogout} disabled={loggingOut} className="rounded-full border border-line px-4 py-2 text-sm text-white hover:border-copper disabled:opacity-50">{loggingOut ? "Saindo…" : "Sair"}</button></div>
             <NavLink
               to="/create-book"
-              className="hidden rounded-full bg-gradient-to-r from-forest to-berry px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 lg:inline-flex"
+              className="hidden shrink-0 whitespace-nowrap rounded-full bg-gradient-to-r from-forest to-berry px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 lg:inline-flex"
             >
-              Cadastrar livro
+              Adicionar livro
             </NavLink>
             <NavLink
               to={currentUserId ? `/users/${currentUserId}` : "/"}

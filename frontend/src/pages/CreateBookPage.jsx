@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import GoogleBooksSearch from "../components/GoogleBooksSearch";
 
 const initialForm = {
   titulo: "",
@@ -9,7 +10,7 @@ const initialForm = {
   totalPaginas: "",
   editora: "",
   anoPublicacao: "",
-  idioma: "",
+  idioma: "pt",
   isbn: "",
   urlCapa: "",
   descricao: "",
@@ -42,7 +43,7 @@ function CreateBookPage() {
       descricao: form.descricao.trim(),
       urlCapa: form.urlCapa.trim(),
       editora: form.editora.trim(),
-      idioma: form.idioma.trim(),
+      idioma: "pt",
       isbn: form.isbn.trim(),
       destaque: form.destaque,
       totalPaginas: form.totalPaginas ? Number(form.totalPaginas) : undefined,
@@ -60,7 +61,7 @@ function CreateBookPage() {
       } else if (error.response?.data?.message) {
         setErrorMessage(error.response.data.message);
       } else {
-        setErrorMessage("Nao foi possivel cadastrar o livro agora. Confira se a API esta ativa em http://localhost:5000.");
+        setErrorMessage("Não foi possível cadastrar o livro agora. Verifique sua conexão e tente novamente.");
       }
     } finally {
       setLoading(false);
@@ -70,10 +71,12 @@ function CreateBookPage() {
   return (
     <section className="mx-auto max-w-4xl rounded-[2rem] border border-line bg-panel p-8 shadow-card">
       <p className="text-sm uppercase tracking-[0.22em] text-copper">Expanda o catalogo</p>
-      <h1 className="mt-3 font-display text-4xl">Cadastrar novo livro</h1>
+      <h1 className="mt-3 font-display text-4xl">Encontre seu próximo livro</h1>
       <p className="mt-3 max-w-2xl text-sm text-mist">
-        Adicione os principais detalhes para que a comunidade possa encontrar, discutir e avaliar este titulo.
+        Busque uma edição no Google Books e adicione ao catálogo com um clique.
       </p>
+      <div className="mt-8"><GoogleBooksSearch showSearchForm /></div>
+      <details className="mt-10 border-t border-line pt-6"><summary className="cursor-pointer text-lg font-semibold text-copper">Cadastrar um livro manualmente</summary>
       {errorMessage && (
         <p className="mt-4 rounded-2xl border border-forest/40 bg-forest/10 px-4 py-3 text-sm text-glow">
           {errorMessage}
@@ -83,7 +86,7 @@ function CreateBookPage() {
       <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
         <div className="grid gap-5 md:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-stone-600" htmlFor="titulo">
+            <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="titulo">
               Titulo do livro
             </label>
             <input
@@ -98,7 +101,7 @@ function CreateBookPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-stone-600" htmlFor="autor">
+            <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="autor">
               Autor
             </label>
             <input
@@ -113,7 +116,7 @@ function CreateBookPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-stone-600" htmlFor="genero">
+            <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="genero">
               Genero
             </label>
             <input
@@ -128,7 +131,7 @@ function CreateBookPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-stone-600" htmlFor="totalPaginas">
+            <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="totalPaginas">
               Quantidade de paginas
             </label>
             <input
@@ -144,7 +147,7 @@ function CreateBookPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-stone-600" htmlFor="editora">
+            <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="editora">
               Editora
             </label>
             <input
@@ -158,7 +161,7 @@ function CreateBookPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-stone-600" htmlFor="anoPublicacao">
+            <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="anoPublicacao">
               Ano de publicacao
             </label>
             <input
@@ -173,22 +176,10 @@ function CreateBookPage() {
             />
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-stone-600" htmlFor="idioma">
-              Idioma
-            </label>
-            <input
-              id="idioma"
-              name="idioma"
-              value={form.idioma}
-              onChange={handleChange}
-              className="w-full rounded-2xl border border-line px-4 py-3"
-              placeholder="Portugues"
-            />
-          </div>
+          <div className="flex items-center rounded-2xl border border-line bg-panelSoft px-4 py-3 text-sm text-mist">Idioma: Português</div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-stone-600" htmlFor="isbn">
+            <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="isbn">
               ISBN
             </label>
             <input
@@ -203,7 +194,7 @@ function CreateBookPage() {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-semibold text-stone-600" htmlFor="urlCapa">
+          <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="urlCapa">
             URL da capa
           </label>
           <input
@@ -217,7 +208,7 @@ function CreateBookPage() {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-semibold text-stone-600" htmlFor="descricao">
+          <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="descricao">
             Descricao
           </label>
           <textarea
@@ -251,6 +242,7 @@ function CreateBookPage() {
           {loading ? "Salvando..." : "Cadastrar livro"}
         </button>
       </form>
+      </details>
     </section>
   );
 }

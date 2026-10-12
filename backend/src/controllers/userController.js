@@ -2,18 +2,9 @@ import { Post } from "../models/Post.js";
 import { Reading } from "../models/Reading.js";
 import { User } from "../models/User.js";
 
-export async function createUser(req, res) {
-  try {
-    const user = await User.create(req.body);
-    res.status(201).json(user);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-}
-
 export async function getUsers(req, res) {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
+    const users = await User.find().select("-email").sort({ createdAt: -1 });
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -22,7 +13,7 @@ export async function getUsers(req, res) {
 
 export async function getUserProfile(req, res) {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id).select("-email");
 
     if (!user) {
       return res.status(404).json({ message: "Usuario nao encontrado" });
@@ -53,7 +44,7 @@ export async function getUserProfile(req, res) {
 
 export async function updateUser(req, res) {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
+    const user = await User.findByIdAndUpdate(req.params.id, Object.fromEntries(["nome", "biografia", "urlAvatar"].filter(key => req.body[key] !== undefined).map(key => [key, req.body[key]])), {
       new: true,
       runValidators: true,
     });

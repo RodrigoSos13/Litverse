@@ -333,7 +333,7 @@ function BookPage() {
 
           {!currentUserId && (
             <p className="mt-3 rounded-2xl bg-panelSoft px-4 py-3 text-sm text-mist">
-              Abra um perfil para escolher o usuario antes de adicionar fanarts.
+              Entre na sua conta para adicionar fanarts.
             </p>
           )}
 

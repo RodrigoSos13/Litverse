@@ -1,0 +1,21 @@
+# Não enviar .env, dependências ou arquivos locais ao Docker.
+**
+!package.json
+!package-lock.json
+!index.html
+!vite.config.js
+!tailwind.config.js
+!postcss.config.js
+!nginx.conf
+!src/
+!src/**
+
+# Exclusões finais também se aplicam a subpastas permitidas.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/credentials.json
+**/service-account*.json

@@ -1,3 +1,4 @@
+import { hashPassword } from "./auth/password.js";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import { connectDatabase } from "./config/db.js";
@@ -11,6 +12,9 @@ import { User } from "./models/User.js";
 dotenv.config();
 
 async function seed() {
+  const password = process.env.SEED_PASSWORD;
+  if (!password || password.length < 8 || password.length > 128) throw new Error("Defina SEED_PASSWORD com 8 a 128 caracteres para as contas de demonstração.");
+  const passwordHash = await hashPassword(password);
   await connectDatabase();
 
   await mongoose.connection.dropDatabase();
@@ -26,6 +30,7 @@ async function seed() {
 
   const [alice, leo] = await User.create([
     {
+      passwordHash,
       nome: "Alice Moraes",
       usuario: "alicelivros",
       email: "alice@litverse.com",
@@ -35,6 +40,7 @@ async function seed() {
       totalSeguindo: 84,
     },
     {
+      passwordHash,
       nome: "Leo Martins",
       usuario: "leoleituras",
       email: "leo@litverse.com",

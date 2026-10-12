@@ -4,12 +4,11 @@ import api from "../services/api";
 import BookCard from "../components/BookCard";
 import PostCard from "../components/PostCard";
 import Sidebar from "../components/Sidebar";
-import UserSignupCard from "../components/UserSignupCard";
 
 function HomePage() {
   const [books, setBooks] = useState([]);
   const [posts, setPosts] = useState([]);
-  const { currentUserId, search, refreshUsers } = useOutletContext();
+  const { currentUserId, search } = useOutletContext();
 
   useEffect(() => {
     loadData().catch(console.error);
@@ -25,15 +24,10 @@ function HomePage() {
     setPosts(recentPosts.data);
   }
 
-  async function handleUserCreated() {
-    await Promise.all([loadData(), refreshUsers()]);
-  }
-
   return (
     <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
       <div className="space-y-6">
         <Sidebar currentUserId={currentUserId} />
-        <UserSignupCard onCreated={handleUserCreated} />
       </div>
 
       <div className="space-y-6">

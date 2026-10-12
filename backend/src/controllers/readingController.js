@@ -38,7 +38,7 @@ export async function upsertReading(req, res) {
         runValidators: true,
         setDefaultsOnInsert: true,
       }
-    ).populate("livro usuario");
+    ).populate("livro").populate("usuario", "nome usuario urlAvatar");
 
     if (req.body.nota !== undefined) {
       await refreshBookRating(req.body.livro);

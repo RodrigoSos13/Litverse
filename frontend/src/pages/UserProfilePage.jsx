@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { useOutletContext, useParams } from "react-router-dom";
 import api from "../services/api";
 import PostCard from "../components/PostCard";
 
@@ -25,8 +25,7 @@ function ReadingSection({ title, items }) {
 
 function UserProfilePage() {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const { currentUserId, setCurrentUserId, users } = useOutletContext();
+  const { currentUserId } = useOutletContext();
   const [profile, setProfile] = useState(null);
 
   function loadProfile() {
@@ -37,23 +36,11 @@ function UserProfilePage() {
     loadProfile().catch(console.error);
   }, [id]);
 
-  useEffect(() => {
-    if (id && id !== currentUserId) {
-      setCurrentUserId(id);
-    }
-  }, [id, currentUserId, setCurrentUserId]);
-
   if (!profile) {
     return <p>Carregando perfil...</p>;
   }
 
   const { usuario, leituras, posts } = profile;
-
-  function handleUserChange(event) {
-    const nextUserId = event.target.value;
-    setCurrentUserId(nextUserId);
-    navigate(`/users/${nextUserId}`);
-  }
 
   return (
     <div className="space-y-6">
@@ -76,23 +63,7 @@ function UserProfilePage() {
             </div>
           </div>
 
-          <div className="w-full max-w-sm lg:ml-6 lg:max-w-xs">
-            <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="active-user">
-              Trocar usuario
-            </label>
-            <select
-              id="active-user"
-              value={currentUserId || usuario._id}
-              onChange={handleUserChange}
-              className="w-full rounded-2xl border border-line bg-panelSoft px-4 py-3 text-sm"
-            >
-              {users.map((user) => (
-                <option key={user._id} value={user._id}>
-                  {user.nome}
-                </option>
-              ))}
-            </select>
-          </div>
+
         </div>
       </section>
 
@@ -109,7 +80,7 @@ function UserProfilePage() {
             <PostCard
               key={post._id}
               post={post}
-              currentUserId={usuario._id}
+              currentUserId={currentUserId}
               onRefresh={loadProfile}
             />
           ))}

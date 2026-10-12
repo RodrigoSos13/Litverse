@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
+    passwordHash: { type: String, select: false },
     nome: {
       type: String,
       required: true,

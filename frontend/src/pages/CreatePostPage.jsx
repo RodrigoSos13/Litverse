@@ -51,7 +51,7 @@ function CreatePostPage() {
       <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
         {!currentUserId && (
           <p className="rounded-2xl bg-panelSoft px-4 py-3 text-sm text-mist">
-            Abra um perfil para escolher o usuario antes de publicar posts.
+            Entre na sua conta para publicar posts.
           </p>
         )}
 

@@ -1,0 +1,18 @@
+# Somente os arquivos necessários entram no contexto de build.
+**
+!package.json
+!package-lock.json
+!src/
+!src/**
+!scripts/
+!scripts/**
+
+# Exclusões finais também se aplicam a subpastas permitidas.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/credentials.json
+**/service-account*.json

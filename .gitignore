@@ -1,8 +1,49 @@
+# Dependências e arquivos gerados
 node_modules/
+dist/
+build/
+coverage/
+.vite/
+*.tsbuildinfo
+__pycache__/
+*.pyc
 
+# Ambiente real e credenciais; apenas exemplos podem ser versionados
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+.aws/
+.ssh/
+.codex/
 
-backend/.mongodb-data/
-backend/.mongodb-data-*/
+# Bancos locais, backups e dumps
+.mongodb-data/
+.mongodb-data-*/
+dump/
+dumps/
+backups/
+*.bson
+*.bson.gz
+*.dump
+*.sqlite
+*.sqlite3
+
+# Arquivos pessoais, logs e temporários
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+*.pid
+*.swp
+*.swo
+*~
+core
+core.*

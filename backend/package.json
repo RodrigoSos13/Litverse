@@ -8,7 +8,9 @@
     "db:start": "bash ./scripts/start-local-mongo.sh",
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "test": "node --test",
+    "user:set-password": "node scripts/set-password.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -35,3 +35,9 @@ body {
     color: #95a6bf;
   }
 }
+
+.auth-screen {
+  background: radial-gradient(ellipse at 12% 20%, rgba(182, 119, 86, .12), transparent 45%), radial-gradient(ellipse at 75% 80%, rgba(197, 59, 76, .08), transparent 45%), #09111f;
+}
+button:focus-visible, a:focus-visible { outline: 2px solid #d7a780; outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }

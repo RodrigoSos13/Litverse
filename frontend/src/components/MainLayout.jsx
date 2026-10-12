@@ -1,43 +1,21 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import api from "../services/api";
+import { useAuth } from "../contexts/AuthContext";
 
 function MainLayout() {
   const [search, setSearch] = useState("");
-  const [users, setUsers] = useState([]);
-  const [currentUserId, setCurrentUserId] = useState(() => localStorage.getItem("litverse:user"));
+  const { user, logout } = useAuth();
+  const currentUserId = user._id;
+  const [logoutError, setLogoutError] = useState("");
+  const [loggingOut, setLoggingOut] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-
-  function loadUsers() {
-    return api.get("/users").then((response) => {
-      setUsers(response.data);
-
-      if (!currentUserId && response.data[0]?._id) {
-        setCurrentUserId(response.data[0]._id);
-      }
-
-      return response.data;
-    });
+  async function handleLogout() {
+    setLoggingOut(true); setLogoutError("");
+    try { await logout(); navigate("/login", { replace: true }); }
+    catch { setLogoutError("Não foi possível sair. Tente novamente."); }
+    finally { setLoggingOut(false); }
   }
-
-  useEffect(() => {
-    loadUsers().catch(console.error);
-  }, []);
-
-  useEffect(() => {
-    if (users.length > 0 && !users.some((user) => user._id === currentUserId)) {
-      setCurrentUserId(users[0]._id);
-    }
-  }, [users, currentUserId]);
-
-  useEffect(() => {
-    if (currentUserId) {
-      localStorage.setItem("litverse:user", currentUserId);
-    } else {
-      localStorage.removeItem("litverse:user");
-    }
-  }, [currentUserId]);
 
   function handleSearchChange(event) {
     const nextValue = event.target.value;
@@ -84,6 +62,7 @@ function MainLayout() {
                 className="w-full rounded-full border border-line bg-panel px-5 py-3 text-sm text-white outline-none transition placeholder:text-mist focus:border-forest"
               />
             </label>
+            <div className="flex items-center gap-3"><span className="text-sm text-mist">@{user.usuario}</span><button onClick={handleLogout} disabled={loggingOut} className="rounded-full border border-line px-4 py-2 text-sm text-white hover:border-copper disabled:opacity-50">{loggingOut ? "Saindo…" : "Sair"}</button></div>
             <NavLink
               to="/create-book"
               className="hidden rounded-full bg-gradient-to-r from-forest to-berry px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 lg:inline-flex"
@@ -99,14 +78,13 @@ function MainLayout() {
           </div>
         </div>
       </header>
+      {logoutError && <p role="alert" className="mx-auto max-w-7xl p-4 text-red-200">{logoutError}</p>}
       <main className="mx-auto max-w-7xl px-4 py-6">
         <Outlet
           context={{
             currentUserId,
             search,
-            users,
-            setCurrentUserId,
-            refreshUsers: loadUsers,
+            currentUser: user,
           }}
         />
       </main>

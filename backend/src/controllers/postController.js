@@ -1,8 +1,13 @@
 import { Comment } from "../models/Comment.js";
 import { Post } from "../models/Post.js";
+import { validateUploadedImage } from "../services/uploadedImage.js";
 
 export async function createPost(req, res) {
   try {
+    if (req.body.urlImagem) validateUploadedImage(req.body.urlImagem);
+    if (req.body.tipo === "fanart" && !req.body.urlImagem) {
+      return res.status(400).json({ message: "Envie uma imagem para publicar sua fanart." });
+    }
     const post = await Post.create(req.body);
     const populatedPost = await Post.findById(post._id)
       .populate("usuario", "nome usuario urlAvatar")

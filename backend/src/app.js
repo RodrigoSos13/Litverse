@@ -19,6 +19,7 @@ app.use((req, res, next) => {
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && req.headers.origin && req.headers.origin !== frontendOrigin) return res.status(403).json({ message: "Origem não autorizada." });
   next();
 });
+app.use("/api/posts", express.json({ limit: "8mb" }));
 app.use(express.json({ limit: "32kb" }));
 
 app.get("/api/health", (_req, res) => {

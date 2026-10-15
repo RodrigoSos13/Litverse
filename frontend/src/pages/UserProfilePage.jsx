@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useOutletContext, useParams } from "react-router-dom";
+import { useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import api from "../services/api";
 import PostCard from "../components/PostCard";
 
@@ -27,6 +28,23 @@ function UserProfilePage() {
   const { id } = useParams();
   const { currentUserId } = useOutletContext();
   const [profile, setProfile] = useState(null);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    setLogoutError("");
+    try {
+      await logout();
+      navigate("/login", { replace: true });
+    } catch {
+      setLogoutError("Não foi possível sair. Tente novamente.");
+    } finally {
+      setLoggingOut(false);
+    }
+  }
 
   function loadProfile() {
     return api.get(`/users/${id}/profile`).then((response) => setProfile(response.data));
@@ -86,6 +104,22 @@ function UserProfilePage() {
           ))}
         </div>
       </section>
+      {id === currentUserId && (
+        <div className="border-t border-line pt-6">
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-3 font-semibold text-red-400 transition hover:bg-red-400/10 hover:text-red-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-400 disabled:opacity-50"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+            </svg>
+            {loggingOut ? "Saindo…" : "Sair"}
+          </button>
+          {logoutError && <p role="alert" className="mt-2 text-sm text-red-300">{logoutError}</p>}
+        </div>
+      )}
     </div>
   );
 }

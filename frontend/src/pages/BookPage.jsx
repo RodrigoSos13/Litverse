@@ -4,6 +4,7 @@ import api from "../services/api";
 import GoogleBooksAttribution from "../components/GoogleBooksAttribution";
 import BookCover from "../components/BookCover";
 import StarRating from "../components/StarRating";
+import FanartComposer from "../components/FanartComposer";
 
 const initialReadingForm = {
   status: "quero_ler",
@@ -23,11 +24,6 @@ function BookPage() {
   const [readingForm, setReadingForm] = useState(initialReadingForm);
   const [savingReading, setSavingReading] = useState(false);
   const [activeReadingMenu, setActiveReadingMenu] = useState(null);
-  const [fanartForm, setFanartForm] = useState({
-    texto: "",
-    urlImagem: "",
-  });
-  const [savingFanart, setSavingFanart] = useState(false);
 
   function loadBookPage() {
     return api.get(`/books/${id}`).then((response) => setData(response.data));
@@ -122,40 +118,6 @@ function BookPage() {
     }
   }
 
-  function handleFanartChange(event) {
-    const { name, value } = event.target;
-    setFanartForm((current) => ({ ...current, [name]: value }));
-  }
-
-  async function handleFanartSubmit(event) {
-    event.preventDefault();
-
-    if (!currentUserId || !fanartForm.texto.trim() || !fanartForm.urlImagem.trim()) {
-      return;
-    }
-
-    setSavingFanart(true);
-
-    try {
-      await api.post("/posts", {
-        usuario: currentUserId,
-        tipo: "fanart",
-        texto: fanartForm.texto.trim(),
-        urlImagem: fanartForm.urlImagem.trim(),
-        livro: id,
-      });
-      setFanartForm((current) => ({
-        ...current,
-        texto: "",
-        urlImagem: "",
-      }));
-      await loadBookPage();
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setSavingFanart(false);
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -308,59 +270,7 @@ function BookPage() {
           <span className="text-sm text-mist">{fanarts.length} fanarts</span>
         </div>
 
-        <form
-          className="mb-5 rounded-3xl border border-line bg-panel p-5 shadow-card"
-          onSubmit={handleFanartSubmit}
-        >
-          <h3 className="font-display text-2xl text-white">Adicionar fanart</h3>
-
-          {!currentUserId && (
-            <p className="mt-3 rounded-2xl bg-panelSoft px-4 py-3 text-sm text-mist">
-              Entre na sua conta para adicionar fanarts.
-            </p>
-          )}
-
-          <div className="mt-4 grid gap-4">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="fanart-url">
-                URL da fanart
-              </label>
-              <input
-                id="fanart-url"
-                name="urlImagem"
-                value={fanartForm.urlImagem}
-                onChange={handleFanartChange}
-                className="w-full rounded-2xl border border-line bg-panelSoft px-4 py-3 text-sm"
-                placeholder="https://"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="fanart-texto">
-              Legenda
-            </label>
-            <textarea
-              id="fanart-texto"
-              name="texto"
-              value={fanartForm.texto}
-              onChange={handleFanartChange}
-              rows="4"
-              className="w-full rounded-2xl border border-line bg-panelSoft px-4 py-3 text-sm"
-              placeholder={`Conte algo sobre sua fanart de ${data.livro.titulo}`}
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={savingFanart || !currentUserId}
-            className="mt-4 rounded-full bg-gradient-to-r from-forest to-berry px-6 py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
-          >
-            {savingFanart ? "Publicando..." : "Publicar fanart"}
-          </button>
-        </form>
+        <FanartComposer key={id} bookId={id} bookTitle={data.livro.titulo} onPublished={loadBookPage} />
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {fanarts.map((post) => (

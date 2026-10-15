@@ -4,18 +4,10 @@ import { useAuth } from "../contexts/AuthContext";
 
 function MainLayout() {
   const [search, setSearch] = useState("");
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const currentUserId = user._id;
-  const [logoutError, setLogoutError] = useState("");
-  const [loggingOut, setLoggingOut] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  async function handleLogout() {
-    setLoggingOut(true); setLogoutError("");
-    try { await logout(); navigate("/login", { replace: true }); }
-    catch { setLogoutError("Não foi possível sair. Tente novamente."); }
-    finally { setLoggingOut(false); }
-  }
 
   function handleSearchChange(event) {
     const nextValue = event.target.value;
@@ -62,7 +54,7 @@ function MainLayout() {
                 className="w-full rounded-full border border-line bg-panel px-5 py-3 text-sm text-white outline-none transition placeholder:text-mist focus:border-forest"
               />
             </label>
-            <div className="flex items-center gap-3"><span className="text-sm text-mist">@{user.usuario}</span><button onClick={handleLogout} disabled={loggingOut} className="rounded-full border border-line px-4 py-2 text-sm text-white hover:border-copper disabled:opacity-50">{loggingOut ? "Saindo…" : "Sair"}</button></div>
+            <span className="text-sm text-mist">@{user.usuario}</span>
             <NavLink
               to="/create-book"
               className="hidden shrink-0 whitespace-nowrap rounded-full bg-gradient-to-r from-forest to-berry px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 lg:inline-flex"
@@ -78,7 +70,6 @@ function MainLayout() {
           </div>
         </div>
       </header>
-      {logoutError && <p role="alert" className="mx-auto max-w-7xl p-4 text-red-200">{logoutError}</p>}
       <main className="mx-auto max-w-7xl px-4 py-6">
         <Outlet
           context={{

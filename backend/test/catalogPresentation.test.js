@@ -27,5 +27,15 @@ test('pesquisa não reutiliza livros de consultas anteriores nem repete catálog
   assert.deepEqual(catalogPageBooks({ query: 'Brandon', localQuery: '', localBooks: [local], externalQuery: '', externalBooks: [remote] }), []);
   assert.equal(catalogPageBooks({ query: 'Brandon', localQuery: 'Brandon', localBooks: [local], externalQuery: 'Brandon', externalBooks: [remote] }).length, 2);
   const next = catalogPageBooks({ query: 'Brandon', localQuery: 'Brandon', localBooks: [local], externalQuery: 'Brandon', externalBooks: [remote], page: 2 });
-  assert.deepEqual(next.map(book => book.googleBooksId), ['remote']);
+  assert.deepEqual(next.map(book => book.googleBooksId), []);
 });
+
+ test('divide catálogo combinado em páginas de 15 sem perder livros locais', async () => {
+  const { catalogPageBooks } = await import('../../frontend/src/services/bookCatalog.js');
+  const localBooks = Array.from({ length: 18 }, (_, index) => ({ _id: `local_${index}`, idioma: 'pt' }));
+  const externalBooks = Array.from({ length: 20 }, (_, index) => ({ googleBooksId: `remote_${index}`, idioma: 'pt' }));
+  const options = { query: '', localQuery: '', externalQuery: '', localBooks, externalBooks };
+  const pages = [1, 2, 3].map(page => catalogPageBooks({ ...options, page }));
+  assert.deepEqual(pages.map(page => page.length), [15, 15, 8]);
+  assert.equal(new Set(pages.flat().map(book => book._id || book.googleBooksId)).size, 38);
+ });

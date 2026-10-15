@@ -8,7 +8,7 @@ function handleError(error, res) {
 
 export async function searchGoogleBooks(req, res) {
   try {
-    const result = req.path === "/google/discover" ? await googleBooks.discover() : await googleBooks.search({ query: req.query.q, startIndex: req.query.startIndex === undefined ? 0 : Number(req.query.startIndex), language: req.query.language ?? "pt" });
+    const result = req.path === "/google/discover" ? await googleBooks.discover({ startIndex: req.query.startIndex === undefined ? 0 : Number(req.query.startIndex) }) : await googleBooks.search({ query: req.query.q, startIndex: req.query.startIndex === undefined ? 0 : Number(req.query.startIndex), language: req.query.language ?? "pt" });
     const ids = result.livros.map(book => book.googleBooksId);
     const existing = await Book.find({ googleBooksId: { $in: ids } }).select("googleBooksId").lean();
     const saved = new Map(existing.map(book => [book.googleBooksId, String(book._id)]));

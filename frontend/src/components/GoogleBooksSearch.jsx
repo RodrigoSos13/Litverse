@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
-import { catalogPageBooks } from "../services/bookCatalog";
+import { catalogPageBooks, mergeCatalogBooks } from "../services/bookCatalog";
 import BookCard from "./BookCard";
 import GoogleBooksAttribution from "./GoogleBooksAttribution";
 
@@ -19,7 +19,8 @@ export default function GoogleBooksSearch({ query = "", showSearchForm = false, 
   const navigate = useNavigate();
   const term = (showSearchForm ? submitted : query).trim();
   const requested = navigation.term === term ? navigation.cursors : [0];
-  const cursor = requested[requested.length - 1];
+  const requestedPage = requested.length;
+  const cursor = requestedPage;
   const visible = snapshot?.term === term ? snapshot : null;
   const result = visible?.result;
   const page = visible?.cursors.length || 1;
@@ -39,9 +40,18 @@ export default function GoogleBooksSearch({ query = "", showSearchForm = false, 
     }
     const timer = setTimeout(async () => {
       try {
-        const response = await api.get(term ? "/books/google/search" : "/books/google/discover", { params: term ? { q: term, startIndex: cursor } : {}, signal: controller.signal, timeout: 60000 });
+        let accumulated = visible?.result?.livros || [];
+        let result = visible?.result;
+        const local = localQuery === term ? localBooks : [];
+        while (!result || (result.hasMore && mergeCatalogBooks(local, accumulated).length <= requestedPage * 15)) {
+          const response = await api.get(term ? "/books/google/search" : "/books/google/discover", { params: { ...(term ? { q: term } : {}), startIndex: result?.nextIndex || 0 }, signal: controller.signal, timeout: 60000 });
+          accumulated = mergeCatalogBooks(accumulated, response.data.livros || []);
+          const previousIndex = result?.nextIndex;
+          result = { ...response.data, livros: accumulated };
+          if (result.nextIndex === previousIndex) { result.hasMore = false; break; }
+        }
         if (!controller.signal.aborted) {
-          setSnapshot({ term, cursors: history, result: response.data });
+          setSnapshot({ term, cursors: history, result });
           setStatus({ term, cursor, loading: false, error: "" });
         }
       } catch (err) {
@@ -80,7 +90,7 @@ export default function GoogleBooksSearch({ query = "", showSearchForm = false, 
       {!loading && !localLoading && !error && !localError && books.length === 0 && <p className="rounded-2xl border border-dashed border-line p-5 text-mist">Nenhuma edição em português encontrada. Experimente outro título, autor ou ISBN.</p>}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{books.map(book => <BookCard key={book._id || book.googleBooksId} book={book} onOpen={openBook} opening={importing === book.googleBooksId} disabled={!!importing} />)}</div>
       {books.some(book => book.googleBooksId) && <div className="flex justify-end border-t border-line/60 pt-3"><GoogleBooksAttribution /></div>}
-      {term && result && (page > 1 || result.hasMore) && <nav aria-label="Páginas da busca de livros" className="flex items-center justify-center gap-4"><button disabled={loading || page === 1} onClick={() => requestPage(visible.cursors.slice(0, -1))} className="rounded-xl border border-line px-4 py-2 text-sm disabled:opacity-40">Anterior</button><span className="text-sm text-mist">Página {page}</span><button disabled={loading || !result.hasMore} onClick={() => requestPage([...visible.cursors, result.nextIndex])} className="rounded-xl border border-line px-4 py-2 text-sm disabled:opacity-40">Próxima</button></nav>}
+      {result && <nav aria-label="Páginas da busca de livros" className="flex items-center justify-center gap-4"><button disabled={loading || localLoading || page === 1} onClick={() => requestPage(visible.cursors.slice(0, -1))} className="rounded-xl border border-line px-4 py-2 text-sm disabled:opacity-40">← Anterior</button><span className="text-sm text-mist">Página {page}</span><button disabled={loading || localLoading || (!result.hasMore && mergeCatalogBooks(localQuery === term ? localBooks : [], result.livros).length <= page * 15)} onClick={() => requestPage([...visible.cursors, result.nextIndex])} className="rounded-xl border border-line px-4 py-2 text-sm disabled:opacity-40">Próxima →</button></nav>}
     </section>
   );
 }

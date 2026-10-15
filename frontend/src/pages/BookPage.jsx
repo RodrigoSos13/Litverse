@@ -3,6 +3,7 @@ import { useOutletContext, useParams } from "react-router-dom";
 import api from "../services/api";
 import GoogleBooksAttribution from "../components/GoogleBooksAttribution";
 import BookCover from "../components/BookCover";
+import StarRating from "../components/StarRating";
 
 const initialReadingForm = {
   status: "quero_ler",
@@ -71,11 +72,6 @@ function BookPage() {
   const fanarts = data.posts.filter((post) => post.tipo === "fanart");
   const totalLeitores =
     (statsMap.quero_ler || 0) + (statsMap.lendo || 0) + (statsMap.lido || 0);
-
-  function handleReadingChange(event) {
-    const { name, value } = event.target;
-    setReadingForm((current) => ({ ...current, [name]: value }));
-  }
 
   async function handleRatingSubmit(event) {
     event.preventDefault();
@@ -261,29 +257,16 @@ function BookPage() {
                 </div>
 
                 {activeReadingMenu === "rating" && (
-                  <form className="grid gap-3 sm:grid-cols-[180px_auto] sm:items-end" onSubmit={handleRatingSubmit}>
-                    <div>
-                      <label className="mb-2 block text-sm font-semibold text-mist" htmlFor="reading-rating">
-                        Nota de 0 a 5
-                      </label>
-                      <input
-                        id="reading-rating"
-                        name="nota"
-                        type="number"
-                        min="0"
-                        max="5"
-                        step="0.1"
-                        value={readingForm.nota}
-                        onChange={handleReadingChange}
-                        className="w-full rounded-2xl border border-line bg-midnight/70 px-4 py-3 text-sm"
-                        placeholder="0 a 5"
-                        required
-                      />
-                    </div>
+                  <form className="flex flex-wrap items-end gap-3" onSubmit={handleRatingSubmit}>
+                    <StarRating
+                      value={readingForm.nota}
+                      onChange={(nota) => setReadingForm((current) => ({ ...current, nota }))}
+                      disabled={savingReading}
+                    />
 
                     <button
                       type="submit"
-                      disabled={savingReading}
+                      disabled={savingReading || readingForm.nota === ""}
                       className="rounded-full bg-copper px-6 py-3 font-semibold text-midnight transition hover:brightness-110 disabled:opacity-60"
                     >
                       {savingReading ? "Salvando..." : "Salvar nota"}

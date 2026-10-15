@@ -45,13 +45,13 @@ test("busca valida parâmetros, pagina e reutiliza consultas simultâneas", asyn
     assert.equal(url.searchParams.get("startIndex"), "12");
     assert.equal(url.searchParams.get("maxResults"), "40");
     assert.equal(url.searchParams.get("langRestrict"), "pt");
-    return Response.json({ totalItems: 40, items: Array.from({ length: 13 }, (_, index) => ({ ...example, id: `volume_${index}`, volumeInfo: { ...example.volumeInfo, industryIdentifiers: [] } })) });
+    return Response.json({ totalItems: 40, items: Array.from({ length: 16 }, (_, index) => ({ ...example, id: `volume_${index}`, volumeInfo: { ...example.volumeInfo, industryIdentifiers: [] } })) });
   } });
   const query = { query: "leitura", startIndex: 12 };
   const [first, second] = await Promise.all([client.search(query), client.search(query)]);
   assert.equal(calls, 1);
   assert.deepEqual(first, second);
-  assert.equal(first.nextIndex, 24);
+  assert.equal(first.nextIndex, 27);
   assert.equal(first.hasMore, true);
   await client.search(query);
   assert.equal(calls, 1);
@@ -111,21 +111,22 @@ test("catálogo rejeita outros idiomas e descarta respostas que desrespeitam o f
   await assert.rejects(client.search({ query: "test", language: "en" }), error => error.status === 400);
 });
 
-test("sugestões priorizam títulos conhecidos, descartam guias e toleram falhas parciais", async () => {
+test("descoberta pagina ficção em português sem exigir título específico", async () => {
+  const volumes = Array.from({ length: 36 }, (_, index) => ({ id: `fiction_${index}`, volumeInfo: { title: `História ${index}`, language: index % 6 === 0 ? "en" : "pt" } }));
   const client = createGoogleBooksClient({ apiKey: () => "test-key", fetchImpl: async url => {
-    const title = url.searchParams.get("q");
-    if (title === "O Hobbit") return new Response(null, { status: 403 });
-    return Response.json({ totalItems: 3, items: [
-      { id: "guide_" + title.length, volumeInfo: { title: "Guia de leitura de " + title, language: "pt" } },
-      { id: "known_" + title.length, volumeInfo: { title, language: "pt" } },
-      { id: "english_" + title.length, volumeInfo: { title, language: "en" } },
-    ] });
+    assert.equal(url.searchParams.get("q"), "subject:fiction");
+    assert.equal(url.searchParams.get("langRestrict"), "pt");
+    const offset = Number(url.searchParams.get("startIndex"));
+    return Response.json({ totalItems: volumes.length, items: volumes.slice(offset, offset + 40) });
   } });
-  const result = await client.discover();
-  assert.equal(result.partial, true);
-  assert.ok(result.livros.some(book => book.titulo === "Dom Casmurro"));
-  assert.ok(result.livros.every(book => book.idioma === "pt" && !book.titulo.startsWith("Guia")));
-  assert.equal(result.hasMore, false);
+  const first = await client.discover();
+  const second = await client.discover({ startIndex: first.nextIndex });
+  assert.equal(first.livros.length, 15);
+  assert.equal(second.livros.length, 15);
+  assert.equal(first.hasMore, true);
+  assert.equal(second.hasMore, false);
+  assert.equal(new Set([...first.livros, ...second.livros].map(book => book.googleBooksId)).size, 30);
+  assert.ok([...first.livros, ...second.livros].every(book => book.idioma === "pt"));
 });
 
 test("paginação preenche resultados relevantes em português e continua pelo cursor real", async () => {
@@ -140,13 +141,13 @@ test("paginação preenche resultados relevantes em português e continua pelo c
     return Response.json({ totalItems: 1, items: volumes.slice(offset, offset + 40) });
   } });
   const first = await client.search({ query: "Brandon Sanderson" });
-  assert.equal(first.livros.length, 12);
-  assert.equal(first.nextIndex, 38);
+  assert.equal(first.livros.length, 15);
+  assert.equal(first.nextIndex, 47);
   assert.equal(first.hasMore, true);
   const second = await client.search({ query: "Brandon Sanderson", startIndex: first.nextIndex });
-  assert.equal(second.livros.length, 6);
+  assert.equal(second.livros.length, 3);
   assert.equal(second.hasMore, false);
-  assert.deepEqual(offsets, [0, 38]);
+  assert.deepEqual(offsets, [0, 40, 47]);
   const combined = [...first.livros, ...second.livros];
   assert.equal(new Set(combined.map(book => book.googleBooksId)).size, 18);
   assert.ok(combined.every(book => book.idioma === "pt" && book.autor === "Brandon Sanderson"));
@@ -162,7 +163,7 @@ test("não encerra página incompleta após três lotes descartados", async () =
   } });
   const result = await client.search({ query: 'Brandon Sanderson' });
   assert.equal(calls, 5);
-  assert.equal(result.livros.length, 12);
-  assert.equal(result.nextIndex, 172);
-  assert.equal(result.hasMore, true);
+  assert.equal(result.livros.length, 13);
+  assert.equal(result.nextIndex, 173);
+  assert.equal(result.hasMore, false);
 });

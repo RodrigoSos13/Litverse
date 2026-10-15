@@ -18,5 +18,5 @@ export function mergeCatalogBooks(localBooks, externalBooks) {
 }
 
 export function catalogPageBooks({ query, localQuery, localBooks, externalQuery, externalBooks, page = 1 }) {
-  return mergeCatalogBooks(page === 1 && localQuery === query ? localBooks : [], externalQuery === query ? externalBooks : []);
+  return mergeCatalogBooks(localQuery === query ? localBooks : [], externalQuery === query ? externalBooks : []).slice((page - 1) * 15, page * 15);
 }

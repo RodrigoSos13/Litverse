@@ -120,18 +120,20 @@ function BookPage() {
     <div className="space-y-6">
       <section className="grid gap-6 rounded-[2rem] border border-line bg-panel p-8 shadow-card lg:grid-cols-[260px_1fr]">
         <div>
-          <div className="flex h-96 items-center justify-center rounded-3xl bg-panelSoft p-4">
+          <div className="relative flex h-96 items-center justify-center rounded-3xl bg-panelSoft p-4">
             <BookCover url={data.livro.urlCapa} title={data.livro.titulo} className="h-full w-full rounded-2xl object-contain" />
+            <div
+              className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-copper/30 bg-midnight/90 px-3 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur-sm"
+              aria-label={data.livro.totalAvaliacoes > 0 ? `Avaliação média: ${data.livro.mediaAvaliacoes} de 5` : "Sem avaliações"}
+              title={data.livro.totalAvaliacoes > 0 ? `${data.livro.totalAvaliacoes} avaliações` : "Sem avaliações ainda"}
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-copper"><path d="m12 2.5 2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.52l-5.88 3.09 1.12-6.55L2.48 9.42l6.58-.96L12 2.5Z" /></svg>
+              <span className="tabular-nums">{data.livro.totalAvaliacoes > 0 ? Number(data.livro.mediaAvaliacoes || 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : "—"}<span className="ml-1 text-xs font-normal text-mist">/5</span></span>
+            </div>
           </div>
 
           <div className="mt-4 space-y-3 rounded-3xl border border-line bg-panelSoft p-4 text-sm text-mist">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-copper">Nota</p>
-              <p className="mt-1 font-display text-3xl text-white">
-                {data.livro.mediaAvaliacoes || 0}/5
-              </p>
-              <p>{data.livro.totalAvaliacoes || 0} avaliacoes</p>
-            </div>
+            <p className="text-xs text-mist">{data.livro.totalAvaliacoes || 0} {data.livro.totalAvaliacoes === 1 ? "avaliação" : "avaliações"}</p>
 
             <div className="flex flex-wrap gap-2">
               <span className="rounded-2xl bg-midnight/70 px-3 py-2">

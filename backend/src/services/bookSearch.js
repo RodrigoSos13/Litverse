@@ -28,3 +28,12 @@ export function localBookSearchFilter(query) {
   const fields = parsed.field === "inauthor" ? ["autor"] : parsed.field === "intitle" ? ["titulo"] : ["titulo", "autor"];
   return { $and: parsed.tokens.map(token => ({ $or: fields.map(field => ({ [field]: { $regex: accentPattern(token), $options: "i" } })) })) };
 }
+
+
+export function indexedBookSearchFilter(query) {
+  const parsed = parseBookSearch(query);
+  if (parsed.field === "isbn") return { isbnSearch: parsed.compact.toLowerCase() };
+  if (!parsed.tokens.length) return { _id: null };
+  const field = parsed.field === "inauthor" ? "authorTokens" : parsed.field === "intitle" ? "titleTokens" : "searchTokens";
+  return { [field]: { $all: parsed.tokens.map(token => new RegExp(`^${token}`)) } };
+}

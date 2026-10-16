@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import api from "../services/api";
-import GoogleBooksAttribution from "../components/GoogleBooksAttribution";
 import BookCover from "../components/BookCover";
 import StarRating from "../components/StarRating";
 import FanartComposer from "../components/FanartComposer";
@@ -187,8 +186,6 @@ function BookPage() {
             )}
           </div>
           <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300">{data.livro.descricao}</p>
-          {data.livro.googleBooksUrl && <div className="mt-4"><GoogleBooksAttribution /></div>}
-          {data.livro.googleBooksUrl && <p className="mt-4 text-xs text-mist">Dados e capa fornecidos pelo <a href={data.livro.googleBooksUrl} target="_blank" rel="noopener noreferrer" className="text-copper underline underline-offset-4">Google Books ↗</a>. Avaliações da comunidade LitVerse.</p>}
 
           <div className="mt-6">
             {!currentUserId ? (

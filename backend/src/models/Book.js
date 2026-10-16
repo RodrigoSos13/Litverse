@@ -1,7 +1,16 @@
 import mongoose from "mongoose";
+import { catalogFields } from "../services/catalogFields.js";
 
 const bookSchema = new mongoose.Schema(
   {
+    searchTokens: { type: [String], default: [] },
+    titleTokens: { type: [String], default: [] },
+    authorTokens: { type: [String], default: [] },
+    isbnSearch: { type: String, default: "" },
+    catalogLanguageRank: { type: Number, default: 0 },
+    catalogHasCover: { type: Boolean, default: false },
+    catalogVersion: Number,
+    catalogSyncedAt: Date,
     googleBooksId: { type: String, trim: true },
     googleBooksUrl: { type: String, default: "" },
     titulo: {
@@ -71,6 +80,19 @@ const bookSchema = new mongoose.Schema(
   }
 );
 
+bookSchema.pre("validate", function () {
+  Object.assign(this, catalogFields(this));
+});
+bookSchema.pre("findOneAndUpdate", function () {
+  const update = this.getUpdate();
+  const metadata = update?.$set?.titulo ? update.$set : update?.$setOnInsert;
+  if (metadata?.titulo && metadata?.autor) Object.assign(metadata, catalogFields(metadata));
+});
+bookSchema.index({ searchTokens: 1 });
+bookSchema.index({ titleTokens: 1 });
+bookSchema.index({ authorTokens: 1 });
+bookSchema.index({ isbnSearch: 1 });
+bookSchema.index({ catalogLanguageRank: 1, catalogHasCover: -1, _id: 1 });
 bookSchema.index(
   { titulo: "text", autor: "text" },
   { default_language: "portuguese", language_override: "idiomaTexto" }

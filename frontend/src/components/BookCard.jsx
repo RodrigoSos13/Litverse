@@ -19,7 +19,6 @@ function BookCard({ book, onOpen, opening = false, disabled = false }) {
       <p className="text-sm text-[#cfd9e8]">{book.autor}</p>
       {book.idioma && <p className="mt-2 text-xs text-mist">{/^(?:en(?:-[a-z]{2})?|english|inglês|ingles)$/i.test(book.idioma) ? "Edição em inglês" : "Edição em português"}</p>}
       <p className="mt-3 line-clamp-3 text-sm leading-6 text-[#d6dfec]">{book.descricao}</p>
-      {book.googleBooksId && book.googleBooksUrl && <a href={book.googleBooksUrl} target="_blank" rel="noopener noreferrer" className="relative z-20 mt-3 w-fit text-xs text-copper underline underline-offset-4 transition-colors hover:text-glow">Fonte: Google Books ↗</a>}
       <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-sm">
         <span className="text-copper">{book.totalAvaliacoes > 0 ? `Nota ${book.mediaAvaliacoes}/5` : "Sem avaliações"}</span>
         {book._id ? <Link to={`/books/${book._id}`} aria-label={`Ver livro: ${book.titulo}`} className={openClass}>

@@ -2,7 +2,7 @@ import { Post } from "../models/Post.js";
 import { Reading } from "../models/Reading.js";
 import { Book } from "../models/Book.js";
 import { isPortuguese, isSupportedLanguage } from "../services/googleBooks.js";
-import { localBookSearchFilter } from "../services/bookSearch.js";
+import { indexedBookSearchFilter, localBookSearchFilter } from "../services/bookSearch.js";
 
 export async function createBook(req, res) {
   try {
@@ -36,6 +36,25 @@ export async function getBooks(req, res) {
     res.json(books);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+}
+
+export async function getCatalog(req, res) {
+  try {
+    const search = req.query.search ?? "";
+    const page = req.query.page === undefined ? 1 : Number(req.query.page);
+    if (typeof search !== "string" || search.length > 200 || !Number.isInteger(page) || page < 1 || page > 10000) {
+      return res.status(400).json({ message: "Informe uma busca e uma página válidas." });
+    }
+    const filter = { idioma: { $in: [/^pt(?:-(?:br|pt))?$/i, /^portugu[eê]s$/i, /^portuguese$/i, /^en(?:-[a-z]{2})?$/i, /^english$/i, /^ingl[eê]s$/i] } };
+    if (search.trim()) Object.assign(filter, indexedBookSearchFilter(search));
+    const books = await Book.find(filter)
+      .select("-searchTokens -titleTokens -authorTokens -isbnSearch -catalogVersion")
+      .sort({ catalogLanguageRank: 1, catalogHasCover: -1, _id: 1 })
+      .skip((page - 1) * 15).limit(16).lean();
+    res.json({ livros: books.slice(0, 15), page, hasMore: books.length > 15 });
+  } catch {
+    res.status(503).json({ message: "Não foi possível consultar o catálogo. Tente novamente." });
   }
 }
 

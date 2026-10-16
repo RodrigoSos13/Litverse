@@ -16,7 +16,7 @@ Abra **http://localhost:8080** e clique em **Criar conta**. O banco começa vazi
 
 O `compose.override.yaml` ativa o desenvolvimento local automaticamente: o frontend usa Vite com atualização ao salvar, e o backend reinicia ao editar `backend/src`. Os fontes são montados como somente leitura nos containers; não é necessário reconstruir imagens a cada edição. O endereço continua sendo **http://localhost:8080**, com `/api` encaminhado ao backend. Alterações de dependências ou Dockerfiles exigem executar novamente `docker compose up --build -d --wait`.
 
-A API e o MongoDB não publicam portas no computador. O Compose aguarda os healthchecks do banco e da API antes de iniciar seus dependentes.
+A API não publica porta no computador. No desenvolvimento, o MongoDB fica disponível apenas em `127.0.0.1:27018` para acesso pelo Compass; ao usar somente `compose.yaml`, o banco não publica porta. O Compose aguarda os healthchecks do banco e da API antes de iniciar seus dependentes.
 
 Para executar o build estático com Nginx, sem atualização automática, use `docker compose -f compose.yaml up --build -d --wait`. Nesse modo, reexecute esse comando após editar o código; executar `npm run build` no computador não atualiza a imagem Docker.
 
@@ -37,6 +37,16 @@ docker compose up --build -d --wait
 ```
 
 Os dados ficam no volume `litverse_mongo-data`, separado do repositório e do MongoDB instalado no computador. `docker compose down -v` apaga esse volume e todos os dados da instalação Docker.
+
+### Abrir o banco no MongoDB Compass
+
+Com os containers ativos, crie uma conexão no Compass com:
+
+```text
+mongodb://127.0.0.1:27018/litverse?directConnection=true
+```
+
+Clique em **Connect** e abra o banco **litverse**. A coleção **livros** contém o catálogo importado. A conexão local não exige usuário nem senha. A porta 27018 distingue o banco Docker de uma eventual instalação do MongoDB na porta 27017. Os dados continuam no mesmo volume do projeto.
 
 ### Configuração opcional
 
@@ -70,24 +80,46 @@ docker compose exec backend npm run user:set-password
 
 O comando pede e-mail e nova senha no terminal administrativo e encerra as sessões anteriores da conta. A instalação Docker não importa automaticamente o banco local antigo.
 
-## Catálogo com Google Books
+## Catálogo local e sincronização com Google Books
 
-A página inicial reúne livros cadastrados e encontrados no Google Books. A busca por título, autor ou ISBN prioriza edições em português; quando elas se esgotam, completa os resultados com edições em inglês. Outros idiomas e edições sem idioma informado são descartados. Os cards indicam o idioma da edição. As páginas têm até 15 livros, sem duplicações por ID ou ISBN, e a consulta examina no máximo três lotes por idioma em cada requisição para evitar buscas demoradas. A continuação usa cursores separados para português e inglês, sem consultar inglês antecipadamente quando já há uma página completa em português.
+A busca e a página inicial consultam exclusivamente o MongoDB em `/api/books/catalog`. A API retorna páginas de até 15 livros, ordenadas primeiro por português, depois por presença de capa e por ID para desempate estável. Inglês é aceito como alternativa e livros sem capa continuam disponíveis. A consulta por título, autor ou ISBN usa campos normalizados e índices locais; pesquisas ignoram acentos e aceitam início de palavras (`Mach` encontra `Machado`). `inauthor:`, `intitle:` e `isbn:` restringem o campo. O clique no card abre o registro local, sem importar dados durante a navegação.
 
-Clique em **Ver livro** para abrir a edição. Se ainda não estiver salva, o servidor a importa automaticamente para o LitVerse com título, autores, gênero, sinopse, capa, editora, idioma, ISBN, páginas e ano disponíveis. A importação consulta os dados no servidor e mantém uma única edição por ID do Google, inclusive em requisições simultâneas. Livros já importados abrem diretamente, preservando suas avaliações e interações. Avaliações, comentários e leituras continuam sendo dados da comunidade; as notas do Google não são importadas. O cadastro manual continua disponível.
+O serviço Docker `catalog-sync` alimenta o banco de forma independente e executa uma rodada na inicialização e a cada 12 horas. Por padrão ele consulta 12 autores, incluindo Stephen King, Machado de Assis, Clarice Lispector e Agatha Christie. Cada rodada busca até três páginas por autor, salva os metadados e persiste o cursor para continuar na rodada seguinte. Quando um autor se esgota, a próxima rodada recomeça para atualizar seus livros. Uma trava no MongoDB evita duas sincronizações ao mesmo tempo. Falhas externas preservam os livros e o cursor já salvos; a busca local continua funcionando.
 
-### Ativar as consultas
+A sincronização faz upsert pelo ID do Google, evita duplicar ISBNs já cadastrados e atualiza somente metadados bibliográficos. IDs locais, avaliações, publicações e listas de leitura são preservados. Livros antigos recebem os campos de busca na inicialização do backend. As capas permanecem em suas URLs de origem; apenas os metadados são importados.
 
-1. No [Google Cloud Console](https://console.cloud.google.com/apis/library/books.googleapis.com), selecione ou crie seu projeto e ative a **Books API**.
-2. Crie uma chave em **APIs e serviços → Credenciais** e restrinja seu uso à **Books API**.
-3. Para Docker, copie `.env.example` para `.env` na **raiz do projeto**, se ainda não existir, e preencha `GOOGLE_BOOKS_API_KEY` com sua chave. Para execução sem Docker, preencha essa variável em `backend/.env`.
-4. No Docker, execute `docker compose up --build -d --wait`; na execução local, reinicie o backend.
+O catálogo contém os livros já cadastrados/importados, não todos os livros existentes no Google. Novos autores entram pela configuração de sincronização ou por uma carga manual; uma pesquisa sem resultados não chama o Google em segundo plano.
 
-Não coloque a chave em `VITE_*`, no frontend ou em arquivos versionados. O `.env` continua ignorado pelo Git e pelos builds Docker, e a chave é enviada ao Google somente pelo backend. O auditor de publicação também detecta o formato usual de chaves Google.
+### Configurar e alimentar o catálogo
 
-A integração depende de conexão externa, chave válida e cota disponível no projeto Google. Sem configuração ou durante uma falha externa, os livros já salvos e o cadastro manual continuam funcionando. As sugestões iniciais usam uma seleção de títulos conhecidos; o servidor mantém apenas resultados em português com títulos correspondentes, descartando guias e materiais sobre essas obras. A busca tem timeout, até duas novas tentativas em falhas temporárias do Google, cache em memória de cinco minutos (até 100 consultas) e limite de 60 solicitações por minuto por usuário e por processo. Cotas do Google são compartilhadas pelo projeto; confira os limites no Console.
+1. Ative a [Books API](https://console.cloud.google.com/apis/library/books.googleapis.com) no Google Cloud e crie uma chave restrita a essa API.
+2. Defina `GOOGLE_BOOKS_API_KEY` no `.env` da raiz. A chave pertence ao backend e não deve ser colocada em `VITE_*`.
+3. Execute `docker compose up --build -d --wait`. O serviço `catalog-sync` inicia a carga sem apagar o banco.
 
-Os metadados podem estar incompletos e diferentes edições têm IDs diferentes. Português e inglês são aceitos nas respostas externas, na importação e na listagem local; edições em outros idiomas ou sem idioma confirmado não aparecem no catálogo, mas seus registros não são apagados. Novos cadastros manuais são registrados em português. Capas ausentes recebem uma apresentação local. As páginas exibem atribuição e links para o Google Books. Não é necessário usar login Google: a integração consulta apenas o catálogo público e não envia posts, comentários ou avaliações do LitVerse ao serviço. Consulte a [documentação da API](https://developers.google.com/books/docs/v1/using) e suas [diretrizes de atribuição](https://developers.google.com/books/branding).
+Configurações opcionais no `.env` (reexecute o Compose após alterá-las):
+
+```dotenv
+CATALOG_SYNC_INTERVAL_HOURS=12
+CATALOG_SYNC_PAGES=3
+# Autores separados por |; omita para usar a lista padrão.
+CATALOG_SYNC_QUERIES=Stephen King|Machado de Assis|Clarice Lispector
+```
+
+Para conferir a carga:
+
+```bash
+docker compose logs -f catalog-sync
+```
+
+Para importar autores específicos imediatamente, quando não houver outra sincronização em andamento:
+
+```bash
+docker compose exec backend npm run catalog:sync -- "Stephen King" "Machado de Assis"
+```
+
+Sem Docker, configure `backend/.env` e execute `npm run catalog:sync` dentro de `backend/` para uma rodada, ou `node src/catalogWorker.js` para manter o processo periódico ativo junto com o servidor.
+
+A importação depende da chave, da conexão e da cota do Google. Sem ela, o catálogo local e o cadastro manual continuam funcionando. Os endpoints legados `/books/google/*` continuam disponíveis para compatibilidade, mas a interface não os consulta. Consulte a [documentação da API](https://developers.google.com/books/docs/v1/using), os [termos](https://developers.google.com/books/terms) e as [diretrizes de atribuição](https://developers.google.com/books/branding) ao publicar a aplicação.
 
 ## Preparar para publicar no GitHub
 

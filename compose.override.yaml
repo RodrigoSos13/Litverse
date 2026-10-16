@@ -1,6 +1,13 @@
 # Desenvolvimento local: aplicado automaticamente por `docker compose up`.
 # Para servir o build estático com Nginx, use apenas `-f compose.yaml`.
 services:
+  mongo:
+    networks:
+      - data
+      - web
+    ports:
+      - "127.0.0.1:27018:27017"
+
   frontend:
     build:
       context: ./frontend
@@ -17,5 +24,9 @@ services:
 
   backend:
     command: ["node", "--watch", "src/server.js"]
+    volumes:
+      - ./backend/src:/app/src:ro
+
+  catalog-sync:
     volumes:
       - ./backend/src:/app/src:ro

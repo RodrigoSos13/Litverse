@@ -1,41 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import api from "../services/api";
 import PostCard from "../components/PostCard";
 import Sidebar from "../components/Sidebar";
-import GoogleBooksSearch from "../components/GoogleBooksSearch";
+import BookCatalog from "../components/BookCatalog";
 
 function HomePage() {
-  const [catalog, setCatalog] = useState({ term: null, books: [], error: "", loading: true });
   const [posts, setPosts] = useState([]);
   const { currentUserId, search } = useOutletContext();
-  const term = search.trim();
-  const requestId = useRef(0);
-  const current = catalog.term === term ? catalog : { term, books: [], error: "", loading: true };
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setCatalog({ term, books: [], error: "", loading: true });
-    const timer = setTimeout(() => loadCatalog(controller.signal, term), 350);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [term]);
 
   useEffect(() => {
     const controller = new AbortController();
     loadPosts(controller.signal);
     return () => controller.abort();
   }, []);
-
-  async function loadCatalog(signal, searchedTerm = term) {
-    const id = ++requestId.current;
-    setCatalog({ term: searchedTerm, books: [], error: "", loading: true });
-    try {
-      const response = await api.get("/books", { params: searchedTerm ? { search: searchedTerm } : {}, signal });
-      if (!signal?.aborted && id === requestId.current) setCatalog({ term: searchedTerm, books: response.data, error: "", loading: false });
-    } catch (err) {
-      if (!signal?.aborted && id === requestId.current) setCatalog({ term: searchedTerm, books: [], error: "Não foi possível carregar o catálogo. Tente novamente.", loading: false });
-    }
-  }
 
   async function loadPosts(signal) {
     try {
@@ -70,7 +48,7 @@ function HomePage() {
           </div>
         </section>
 
-        <GoogleBooksSearch query={search} localBooks={current.books} localQuery={current.term} localLoading={current.loading} localError={current.error} onRetryLocal={() => loadCatalog()} />
+        <BookCatalog query={search} />
 
         <section className="mx-auto w-full max-w-[560px]">
           <h2 className="mb-4 font-display text-3xl text-white">Posts recentes</h2>

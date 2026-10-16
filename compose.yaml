@@ -41,6 +41,24 @@ services:
       retries: 5
       start_period: 10s
 
+  catalog-sync:
+    build: ./backend
+    restart: unless-stopped
+    init: true
+    command: ["node", "src/catalogWorker.js"]
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/litverse
+      GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
+      CATALOG_SYNC_INTERVAL_HOURS: ${CATALOG_SYNC_INTERVAL_HOURS:-12}
+      CATALOG_SYNC_PAGES: ${CATALOG_SYNC_PAGES:-3}
+      CATALOG_SYNC_QUERIES: ${CATALOG_SYNC_QUERIES:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - web
+      - data
+
   frontend:
     build: ./frontend
     restart: unless-stopped

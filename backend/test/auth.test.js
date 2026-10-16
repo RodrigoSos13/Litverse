@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import mongoose from "mongoose";
 import app from "../src/app.js";
+import { prepareCatalog, saveCatalogVolumes, syncCatalog } from "../src/services/catalogSync.js";
 import { Book } from "../src/models/Book.js";
 import { User } from "../src/models/User.js";
 import { Session } from "../src/auth/session.js";
@@ -155,6 +156,87 @@ test("Google Books exige login e configuração, importa sem duplicar e preserva
     if (previousKey === undefined) delete process.env.GOOGLE_BOOKS_API_KEY;
     else process.env.GOOGLE_BOOKS_API_KEY = previousKey;
   }
+});
+
+test("catálogo pagina e prioriza português e capas inteiramente no banco", async () => {
+  const volumes = Array.from({ length: 20 }, (_, index) => ({ titulo: `Catalog ${index}`, autor: "Catalog Author", genero: "Teste", descricao: "Teste", idioma: index < 17 ? "pt" : "en", urlCapa: index < 5 || index >= 17 ? "https://example.com/cover.jpg" : "" }));
+  await Book.create(volumes);
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (url, options) => {
+    assert.ok(!String(url).includes("googleapis.com"), "busca local não deve acessar Google");
+    return originalFetch(url, options);
+  };
+  try {
+    const first = await request("/books/catalog?search=Catalog%20Author&page=1");
+    const second = await request("/books/catalog?search=Catalog%20Author&page=2");
+    assert.equal(first.status, 200);
+    assert.equal(first.data.livros.length, 15);
+    assert.equal(first.data.hasMore, true);
+    assert.ok(first.data.livros.every(book => book.idioma === "pt"));
+    assert.ok(first.data.livros.slice(0, 5).every(book => book.urlCapa));
+    assert.equal(first.data.livros[0].searchTokens, undefined);
+    assert.equal(second.data.livros.length, 5);
+    assert.equal(second.data.hasMore, false);
+    assert.equal(new Set([...first.data.livros, ...second.data.livros].map(book => book._id)).size, 20);
+    assert.equal((await request("/books/catalog?search=inauthor:Cat&page=1")).data.livros.length, 15);
+    assert.deepEqual((await request("/books/catalog?search=naoexiste")).data.livros, []);
+    assert.equal((await request("/books/catalog?page=-1")).status, 400);
+    assert.equal((await request("/books/catalog?page=1.5")).status, 400);
+    assert.equal((await request("/books/catalog", { session: null })).status, 401);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("migração torna livros antigos pesquisáveis sem mudar IDs e avaliações", async () => {
+  const { insertedId } = await Book.collection.insertOne({ titulo: "Memórias Antigas", autor: "José Antigo", genero: "Teste", descricao: "Original", idioma: "pt", mediaAvaliacoes: 4, totalAvaliacoes: 2, isbn: "978-1234567890" });
+  await prepareCatalog();
+  const result = await request("/books/catalog?search=Jose%20Antigo");
+  assert.equal(result.data.livros[0]._id, String(insertedId));
+  assert.equal(result.data.livros[0].mediaAvaliacoes, 4);
+  assert.equal((await request("/books/catalog?search=9781234567890")).data.livros[0]._id, String(insertedId));
+});
+
+test("sincronização reutiliza IDs, preserva avaliações e evita duplicar ISBN manual", async () => {
+  const volume = { googleBooksId: "synced_volume", titulo: "Primeiro título", autor: "Autor Sync", genero: "Teste", descricao: "Descrição", idioma: "pt", isbn: "9781111111111", urlCapa: "" };
+  assert.equal((await saveCatalogVolumes([volume])).inserted, 1);
+  const stored = await Book.findOne({ googleBooksId: volume.googleBooksId });
+  await Book.updateOne({ _id: stored._id }, { $set: { mediaAvaliacoes: 4, totalAvaliacoes: 3 } });
+  assert.equal((await saveCatalogVolumes([{ ...volume, titulo: "Título atualizado", urlCapa: "https://example.com/cover.jpg" }])).updated, 1);
+  const updated = await Book.findById(stored._id);
+  assert.equal(updated.mediaAvaliacoes, 4);
+  assert.equal(updated.totalAvaliacoes, 3);
+  assert.equal(updated.titulo, "Título atualizado");
+  assert.ok(updated.catalogHasCover);
+  assert.equal(await Book.countDocuments({ googleBooksId: volume.googleBooksId }), 1);
+  await Book.create({ titulo: "Manual", autor: "Manual", genero: "Teste", descricao: "Manual", isbn: "9782222222222" });
+  await saveCatalogVolumes([{ ...volume, googleBooksId: "manual_duplicate", isbn: "9782222222222" }]);
+  assert.equal(await Book.countDocuments({ isbn: "9782222222222" }), 1);
+});
+
+test("sincronização retoma cursor e mantém progresso após falha externa", async () => {
+  const offsets = [];
+  const client = { search: async ({ startIndex }) => { offsets.push(startIndex); return { livros: [], nextIndex: startIndex + 40, hasMore: true }; } };
+  const options = { queries: ["Autor Cursor"], pagesPerQuery: 1, client, report: () => {} };
+  await syncCatalog(options);
+  await syncCatalog({ ...options, client: { search: async () => { throw new Error("offline"); } } });
+  await syncCatalog(options);
+  assert.deepEqual(offsets, [0, 40]);
+});
+
+test("somente um processo sincroniza o catálogo por vez", async () => {
+  let release;
+  let announce;
+  const started = new Promise(resolve => { announce = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  const first = syncCatalog({ queries: ["Autor Trava"], pagesPerQuery: 1, report: () => {}, client: { search: async () => {
+    announce();
+    await gate;
+    return { livros: [], nextIndex: 0, hasMore: false };
+  } } });
+  await started;
+  try {
+    const second = await syncCatalog({ queries: ["Autor Trava"], report: () => {} });
+    assert.equal(second.busy, true);
+  } finally { release(); await first; }
 });
 
 test("logout revoga token; login valida senha e renova sessão", async () => {

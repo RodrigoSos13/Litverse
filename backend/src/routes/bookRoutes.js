@@ -3,6 +3,7 @@ import {
   createBook,
   getBookById,
   getBooks,
+  getCatalog,
 } from "../controllers/bookController.js";
 
 import { importGoogleBook, searchGoogleBooks } from "../controllers/googleBooksController.js";
@@ -22,6 +23,7 @@ router.get("/google/search", limitGoogleBooks, searchGoogleBooks);
 router.get("/google/discover", limitGoogleBooks, searchGoogleBooks);
 router.post("/google/import", limitGoogleBooks, importGoogleBook);
 
+router.get("/catalog", getCatalog);
 router.get("/", getBooks);
 router.post("/", createBook);
 router.get("/:id", getBookById);

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
-import GoogleBooksSearch from "../components/GoogleBooksSearch";
+import BookCatalog from "../components/BookCatalog";
 
 const initialForm = {
   titulo: "",
@@ -73,9 +73,9 @@ function CreateBookPage() {
       <p className="text-sm uppercase tracking-[0.22em] text-copper">Expanda o catalogo</p>
       <h1 className="mt-3 font-display text-4xl">Encontre seu próximo livro</h1>
       <p className="mt-3 max-w-2xl text-sm text-mist">
-        Busque uma edição no Google Books e adicione ao catálogo com um clique.
+        Encontre uma edição no catálogo ou cadastre um novo livro abaixo.
       </p>
-      <div className="mt-8"><GoogleBooksSearch showSearchForm /></div>
+      <div className="mt-8"><BookCatalog showSearchForm /></div>
       <details className="mt-10 border-t border-line pt-6"><summary className="cursor-pointer text-lg font-semibold text-copper">Cadastrar um livro manualmente</summary>
       {errorMessage && (
         <p className="mt-4 rounded-2xl border border-forest/40 bg-forest/10 px-4 py-3 text-sm text-glow">

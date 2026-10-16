@@ -65,8 +65,6 @@ function BookPage() {
     return accumulator;
   }, {});
   const fanarts = data.posts.filter((post) => post.tipo === "fanart");
-  const totalLeitores =
-    (statsMap.quero_ler || 0) + (statsMap.lendo || 0) + (statsMap.lido || 0);
 
   async function handleRatingSubmit(event) {
     event.preventDefault();
@@ -135,10 +133,7 @@ function BookPage() {
               <p>{data.livro.totalAvaliacoes || 0} avaliacoes</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <span className="rounded-2xl bg-midnight/70 px-3 py-2">
-                {totalLeitores} pessoas
-              </span>
+            <div className="flex flex-wrap gap-2">
               <span className="rounded-2xl bg-midnight/70 px-3 py-2">
                 {statsMap.lido || 0} lidos
               </span>

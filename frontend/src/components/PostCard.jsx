@@ -51,7 +51,7 @@ function PostCard({ post, currentUserId, onRefresh }) {
   }
 
   return (
-    <article className="rounded-3xl border border-line bg-panel p-5 shadow-card">
+    <article className="mx-auto w-full min-w-0 max-w-[560px] overflow-hidden rounded-2xl border border-line bg-panel p-4 shadow-card sm:p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <Link to={`/users/${post.usuario?._id || post.usuario}`} className="font-semibold text-white transition hover:text-glow">
@@ -73,11 +73,14 @@ function PostCard({ post, currentUserId, onRefresh }) {
       <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-300">{post.texto}</p>
 
       {post.urlImagem && (
-        <img
-          src={post.urlImagem}
-          alt={post.tipo}
-          className="mt-4 max-h-80 w-full rounded-2xl object-cover"
-        />
+        <div className="-mx-4 mt-4 flex items-center justify-center border-y border-line/60 bg-midnight sm:-mx-5">
+          <img
+            src={post.urlImagem}
+            alt={post.texto || post.tipo}
+            loading="lazy"
+            className="block h-auto max-h-[640px] w-full object-contain"
+          />
+        </div>
       )}
 
       <div className="mt-4 flex gap-4 text-sm text-mist">
@@ -98,13 +101,13 @@ function PostCard({ post, currentUserId, onRefresh }) {
             </button>
           </div>
 
-          <form className="mt-3 flex gap-3" onSubmit={handleComment}>
+          <form className="mt-3 flex gap-2" onSubmit={handleComment}>
             <input
               type="text"
               value={commentText}
               onChange={(event) => setCommentText(event.target.value)}
               placeholder="Escreva um comentario"
-              className="flex-1 rounded-full border border-line bg-panelSoft px-4 py-2 text-sm"
+              className="min-w-0 flex-1 rounded-full border border-line bg-panelSoft px-4 py-2 text-sm"
             />
             <button
               type="submit"

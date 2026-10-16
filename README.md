@@ -14,7 +14,11 @@ docker compose up --build -d --wait
 
 Abra **http://localhost:8080** e clique em **Criar conta**. O banco começa vazio: o cadastro e a criação de livros funcionam imediatamente. Login aceita e-mail ou nome de usuário.
 
-O frontend é compilado e servido pelo Nginx, que encaminha `/api` para o backend. A API e o MongoDB não publicam portas no computador. O Compose aguarda os healthchecks do banco e da API antes de iniciar seus dependentes, conforme a [documentação do Docker](https://docs.docker.com/compose/how-tos/startup-order/).
+O `compose.override.yaml` ativa o desenvolvimento local automaticamente: o frontend usa Vite com atualização ao salvar, e o backend reinicia ao editar `backend/src`. Os fontes são montados como somente leitura nos containers; não é necessário reconstruir imagens a cada edição. O endereço continua sendo **http://localhost:8080**, com `/api` encaminhado ao backend. Alterações de dependências ou Dockerfiles exigem executar novamente `docker compose up --build -d --wait`.
+
+A API e o MongoDB não publicam portas no computador. O Compose aguarda os healthchecks do banco e da API antes de iniciar seus dependentes.
+
+Para executar o build estático com Nginx, sem atualização automática, use `docker compose -f compose.yaml up --build -d --wait`. Nesse modo, reexecute esse comando após editar o código; executar `npm run build` no computador não atualiza a imagem Docker.
 
 Comandos úteis:
 
@@ -28,7 +32,7 @@ docker compose logs -f
 # Parar os serviços; os dados continuam preservados
 docker compose down
 
-# Atualizar containers depois de mudar o código
+# Atualizar containers depois de mudar dependências ou Dockerfiles
 docker compose up --build -d --wait
 ```
 
@@ -68,7 +72,7 @@ O comando pede e-mail e nova senha no terminal administrativo e encerra as sess�
 
 ## Catálogo com Google Books
 
-A página inicial apresenta um único catálogo: livros cadastrados manualmente e encontrados no Google Books usam os mesmos cards e o mesmo botão **Ver livro**. Apenas os livros provenientes do Google mostram a indicação de origem. A busca por título, autor ou ISBN retorna exclusivamente edições em português, em páginas de até 12 resultados, e remove duplicações por ID ou ISBN. Mesmo com o banco vazio, as sugestões iniciais buscam clássicos e títulos conhecidos, como Dom Casmurro, O Pequeno Príncipe, O Hobbit e O Alquimista. Não há seletor para outros idiomas. A busca exige todos os termos no título ou autor e reconhece ISBN com hífens. A paginação usa o cursor real do Google, examinando lotes de até 40 itens até preencher a página, esgotar os resultados ou atingir o limite de tempo de 45 segundos para descartar idiomas incorretos, resultados irrelevantes e duplicações. Livros locais aparecem na primeira página da consulta; respostas de pesquisas anteriores são descartadas. Se a próxima página falhar, os livros da página atual permanecem visíveis para tentar novamente.
+A página inicial reúne livros cadastrados e encontrados no Google Books. A busca por título, autor ou ISBN prioriza edições em português; quando elas se esgotam, completa os resultados com edições em inglês. Outros idiomas e edições sem idioma informado são descartados. Os cards indicam o idioma da edição. As páginas têm até 15 livros, sem duplicações por ID ou ISBN, e a consulta examina no máximo três lotes por idioma em cada requisição para evitar buscas demoradas. A continuação usa cursores separados para português e inglês, sem consultar inglês antecipadamente quando já há uma página completa em português.
 
 Clique em **Ver livro** para abrir a edição. Se ainda não estiver salva, o servidor a importa automaticamente para o LitVerse com título, autores, gênero, sinopse, capa, editora, idioma, ISBN, páginas e ano disponíveis. A importação consulta os dados no servidor e mantém uma única edição por ID do Google, inclusive em requisições simultâneas. Livros já importados abrem diretamente, preservando suas avaliações e interações. Avaliações, comentários e leituras continuam sendo dados da comunidade; as notas do Google não são importadas. O cadastro manual continua disponível.
 
@@ -83,7 +87,7 @@ Não coloque a chave em `VITE_*`, no frontend ou em arquivos versionados. O `.en
 
 A integração depende de conexão externa, chave válida e cota disponível no projeto Google. Sem configuração ou durante uma falha externa, os livros já salvos e o cadastro manual continuam funcionando. As sugestões iniciais usam uma seleção de títulos conhecidos; o servidor mantém apenas resultados em português com títulos correspondentes, descartando guias e materiais sobre essas obras. A busca tem timeout, até duas novas tentativas em falhas temporárias do Google, cache em memória de cinco minutos (até 100 consultas) e limite de 60 solicitações por minuto por usuário e por processo. Cotas do Google são compartilhadas pelo projeto; confira os limites no Console.
 
-Os metadados podem estar incompletos e diferentes edições têm IDs diferentes. O idioma é validado tanto nas respostas externas quanto na importação e na listagem local; edições existentes em outras línguas ou sem idioma confirmado não aparecem no catálogo, mas seus registros não são apagados. Novos cadastros manuais são registrados em português. Capas ausentes recebem uma apresentação local. As páginas exibem atribuição e links para o Google Books. Não é necessário usar login Google: a integração consulta apenas o catálogo público e não envia posts, comentários ou avaliações do LitVerse ao serviço. Consulte a [documentação da API](https://developers.google.com/books/docs/v1/using) e suas [diretrizes de atribuição](https://developers.google.com/books/branding).
+Os metadados podem estar incompletos e diferentes edições têm IDs diferentes. Português e inglês são aceitos nas respostas externas, na importação e na listagem local; edições em outros idiomas ou sem idioma confirmado não aparecem no catálogo, mas seus registros não são apagados. Novos cadastros manuais são registrados em português. Capas ausentes recebem uma apresentação local. As páginas exibem atribuição e links para o Google Books. Não é necessário usar login Google: a integração consulta apenas o catálogo público e não envia posts, comentários ou avaliações do LitVerse ao serviço. Consulte a [documentação da API](https://developers.google.com/books/docs/v1/using) e suas [diretrizes de atribuição](https://developers.google.com/books/branding).
 
 ## Preparar para publicar no GitHub
 

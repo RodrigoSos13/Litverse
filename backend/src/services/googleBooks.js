@@ -4,6 +4,8 @@ const PAGE_SIZE = 15;
 const validId = value => typeof value === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value);
 export const isPortuguese = language => typeof language === "string" && ["pt", "pt-br", "pt-pt", "português", "portugues", "portuguese"].includes(language.trim().toLowerCase());
 
+export const isEnglish = language => typeof language === "string" && /^(?:en(?:-[a-z]{2})?|english|inglês|ingles)$/i.test(language.trim());
+export const isSupportedLanguage = language => isPortuguese(language) || isEnglish(language);
 
 export class GoogleBooksError extends Error {
   constructor(message, status = 502, code = "GOOGLE_BOOKS_UNAVAILABLE") {
@@ -53,7 +55,7 @@ export function normalizeVolume(volume) {
   };
 }
 
-export function createGoogleBooksClient({ fetchImpl = (...args) => fetch(...args), apiKey = () => process.env.GOOGLE_BOOKS_API_KEY, timeoutMs = 8000 } = {}) {
+export function createGoogleBooksClient({ fetchImpl = (...args) => fetch(...args), apiKey = () => process.env.GOOGLE_BOOKS_API_KEY, timeoutMs = 8000, englishFallback = true } = {}) {
   const cache = new Map();
   const pending = new Map();
 
@@ -100,36 +102,61 @@ export function createGoogleBooksClient({ fetchImpl = (...args) => fetch(...args
   }
 
   return {
-    async search({ query, startIndex = 0, language = "pt", maxBatches = 50, matchResults = true }) {
-      if (typeof query !== "string" || query.trim().length < 2 || query.length > 200 || !Number.isInteger(startIndex) || startIndex < 0 || startIndex > 1000 || language !== "pt") throw new GoogleBooksError("Informe uma busca válida de 2 a 200 caracteres. O catálogo apresenta apenas edições em português.", 400, "INVALID_SEARCH");
+    async search({ query, startIndex = 0, language = "pt", maxBatches = 3, matchResults = true, pageSize = PAGE_SIZE }) {
+      if (typeof query !== "string" || query.trim().length < 2 || query.length > 200 || !Number.isInteger(startIndex) || startIndex < 0 || startIndex > 2001 || language !== "pt") throw new GoogleBooksError("Informe uma busca válida de 2 a 200 caracteres. O catálogo prioriza português e aceita inglês.", 400, "INVALID_SEARCH");
       const term = query.trim();
       const isbn = term.replace(/[\s-]/g, "");
-      const q = /^(?:\d{9}[\dXx]|\d{13})$/.test(isbn) ? `isbn:${isbn}` : term;
+      // Consultas combinando intitle/inauthor com OR retornam zero para autores
+      // disponíveis. Use texto livre e valide título/autor nos metadados abaixo.
+      const q = /^(?:\d{9}[\dXx]|\d{13})$/.test(isbn) ? `isbn:${isbn}`
+        : term;
       const books = [];
       const ids = new Set();
       const isbns = new Set();
-      let cursor = startIndex;
+      const english = startIndex >= 1001;
+      const languageOffset = english ? 1001 : 0;
+      let cursor = startIndex - languageOffset;
       let remaining = false;
       const deadline = Date.now() + 45000;
       for (let batch = 0; batch < maxBatches && cursor <= 1000 && Date.now() < deadline; batch++) {
-        const data = await request("", { q, startIndex: cursor, maxResults: 40, printType: "books", langRestrict: "pt" });
+        let data;
+        try {
+          data = await request("", { q, startIndex: cursor, maxResults: 40, printType: "books", langRestrict: english ? "en" : "pt" });
+        } catch (error) {
+          if (!books.length) throw error;
+          return { livros: books, startIndex, nextIndex: cursor + languageOffset, hasMore: true };
+        }
         const items = Array.isArray(data.items) ? data.items : [];
         for (let index = 0; index < items.length && cursor + index <= 1000; index++) {
           const book = normalizeVolume(items[index]);
-          if (!book || !isPortuguese(book.idioma) || (matchResults && !matchesBookSearch(book, term)) || ids.has(book.googleBooksId) || (book.isbn && isbns.has(book.isbn))) continue;
-          // O 16º resultado confirma a próxima página; seu cursor ainda não é consumido.
-          if (books.length === PAGE_SIZE) return { livros: books, startIndex, nextIndex: cursor + index, hasMore: true };
+          if (!book || !(english ? isEnglish(book.idioma) : isPortuguese(book.idioma)) || (matchResults && !matchesBookSearch(book, term)) || ids.has(book.googleBooksId) || (book.isbn && isbns.has(book.isbn))) continue;
           books.push(book); ids.add(book.googleBooksId);
           if (book.isbn) isbns.add(book.isbn);
+          if (books.length === pageSize) {
+            const consumed = cursor + index + 1;
+            const nextIndex = consumed + languageOffset;
+            return { livros: books, startIndex, nextIndex, hasMore: (!english && englishFallback) || (consumed <= 1000 && (index + 1 < items.length || items.length === 40 || Number(data.totalItems) > consumed)) };
+          }
         }
         cursor += items.length;
         remaining = items.length > 0 && cursor <= 1000 && (items.length === 40 || Number(data.totalItems) > cursor);
         if (!remaining) break;
       }
-      return { livros: books, startIndex, nextIndex: cursor, hasMore: remaining };
+      if (!english && englishFallback && !remaining) {
+        let fallback;
+        try {
+          fallback = await this.search({ query, startIndex: 1001, language, maxBatches, matchResults, pageSize: pageSize - books.length });
+        } catch (error) {
+          if (!books.length) throw error;
+          return { livros: books, startIndex, nextIndex: 1001, hasMore: true };
+        }
+        const seen = new Set(books.map(book => book.googleBooksId));
+        return { ...fallback, startIndex, livros: [...books, ...fallback.livros.filter(book => !seen.has(book.googleBooksId) && !(book.isbn && isbns.has(book.isbn)))] };
+      }
+      return { livros: books, startIndex, nextIndex: cursor + languageOffset, hasMore: remaining };
     },
     async discover({ startIndex = 0 } = {}) {
-      return this.search({ query: "subject:fiction", startIndex, matchResults: false });
+      return this.search({ query: "ficção", startIndex, matchResults: false });
     },
     async getVolume(id) {
       if (!validId(id)) throw new GoogleBooksError("Identificador de livro inválido.", 400, "INVALID_VOLUME");

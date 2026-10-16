@@ -1,7 +1,7 @@
 import { Post } from "../models/Post.js";
 import { Reading } from "../models/Reading.js";
 import { Book } from "../models/Book.js";
-import { isPortuguese } from "../services/googleBooks.js";
+import { isPortuguese, isSupportedLanguage } from "../services/googleBooks.js";
 import { localBookSearchFilter } from "../services/bookSearch.js";
 
 export async function createBook(req, res) {
@@ -9,8 +9,8 @@ export async function createBook(req, res) {
     const fields = ["titulo", "autor", "genero", "descricao", "urlCapa", "destaque", "totalPaginas", "editora", "anoPublicacao", "idioma", "isbn"];
     const payload = Object.fromEntries(fields.filter(key => req.body[key] !== undefined).map(key => [key, req.body[key]]));
     if (!payload.idioma) payload.idioma = "pt";
-    if (!isPortuguese(payload.idioma)) return res.status(400).json({ message: "O catálogo aceita apenas edições em português." });
-    payload.idioma = "pt";
+    if (!isSupportedLanguage(payload.idioma)) return res.status(400).json({ message: "O catálogo aceita edições em português ou inglês." });
+    payload.idioma = isPortuguese(payload.idioma) ? "pt" : "en";
     const book = await Book.create(payload);
     res.status(201).json(book);
   } catch (error) {
@@ -21,7 +21,7 @@ export async function createBook(req, res) {
 export async function getBooks(req, res) {
   try {
     const { search, featured } = req.query;
-    const filter = { idioma: { $in: [/^pt(?:-(?:br|pt))?$/i, /^portugu[eê]s$/i, /^portuguese$/i] } };
+    const filter = { idioma: { $in: [/^pt(?:-(?:br|pt))?$/i, /^portugu[eê]s$/i, /^portuguese$/i, /^en(?:-[a-z]{2})?$/i, /^english$/i, /^ingl[eê]s$/i] } };
 
     if (featured === "true") {
       filter.destaque = true;

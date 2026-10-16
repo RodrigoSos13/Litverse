@@ -1,33 +1,13 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import api from "../services/api";
+import useUserProfile, { readingTabs } from "../hooks/useUserProfile";
 import PostCard from "../components/PostCard";
-
-function ReadingSection({ title, items }) {
-  return (
-    <section className="rounded-3xl border border-line bg-panel p-5 shadow-card">
-      <h3 className="font-display text-2xl">{title}</h3>
-      <div className="mt-4 space-y-3">
-        {items.map((reading) => (
-          <div key={reading._id} className="rounded-2xl bg-panelSoft p-3">
-            <p className="font-semibold">{reading.livro?.titulo}</p>
-            <p className="text-sm text-mist">{reading.livro?.autor}</p>
-            <p className="text-xs uppercase tracking-[0.18em] text-copper">
-              Nota {reading.nota ?? "-"}
-            </p>
-          </div>
-        ))}
-        {items.length === 0 && <p className="text-sm text-mist">Nenhum livro nesta lista ainda.</p>}
-      </div>
-    </section>
-  );
-}
 
 function UserProfilePage() {
   const { id } = useParams();
   const { currentUserId } = useOutletContext();
-  const [profile, setProfile] = useState(null);
+  const { profile, error, refresh: loadProfile } = useUserProfile(id);
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -46,53 +26,39 @@ function UserProfilePage() {
     }
   }
 
-  function loadProfile() {
-    return api.get(`/users/${id}/profile`).then((response) => setProfile(response.data));
-  }
-
-  useEffect(() => {
-    loadProfile().catch(console.error);
-  }, [id]);
-
-  if (!profile) {
-    return <p>Carregando perfil...</p>;
-  }
+  if (error) return <div role="alert" className="py-16 text-center"><p className="text-mist">{error}</p><button onClick={loadProfile} className="mt-4 text-copper">Tentar novamente</button></div>;
+  if (!profile) return <p role="status" className="py-16 text-center text-mist">Carregando perfil…</p>;
 
   const { usuario, leituras, posts } = profile;
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-[2rem] border border-line bg-panel p-8 shadow-card">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center">
-            <img
-              src={usuario.urlAvatar || "https://placehold.co/160x160"}
-              alt={usuario.nome}
-              className="h-28 w-28 rounded-full object-cover"
-            />
-            <div>
-              <h1 className="font-display text-4xl">{usuario.nome}</h1>
-              <p className="text-mist">@{usuario.usuario}</p>
-              <p className="mt-3 max-w-2xl text-sm text-slate-300">{usuario.biografia}</p>
-              <div className="mt-4 flex gap-6 text-sm font-semibold text-glow">
-                <span>{usuario.totalSeguidores} seguidores</span>
-                <span>{usuario.totalSeguindo} seguindo</span>
-              </div>
+    <div className="mx-auto max-w-4xl space-y-10 pb-8">
+      <section aria-label="Perfil" className="border-b border-line pb-8 pt-4 sm:pt-8">
+        <div className="flex items-start gap-5 sm:gap-8">
+          {usuario.urlAvatar ? <img src={usuario.urlAvatar} alt={usuario.nome} className="h-20 w-20 shrink-0 rounded-full object-cover ring-4 ring-white/5 sm:h-28 sm:w-28" /> : <div aria-hidden="true" className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-forest/25 font-display text-3xl text-glow ring-4 ring-white/5 sm:h-28 sm:w-28">{usuario.nome?.slice(0, 1).toUpperCase()}</div>}
+          <div className="min-w-0 flex-1">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-copper">{id === currentUserId ? "Meu espaço literário" : "Espaço literário"}</p>
+            <h1 className="break-words font-display text-3xl text-white sm:text-4xl">{usuario.nome}</h1>
+            <p className="mt-1 text-sm text-mist">@{usuario.usuario}</p>
+            {usuario.biografia && <p className="mt-4 max-w-xl whitespace-pre-line text-sm leading-relaxed text-slate-300">{usuario.biografia}</p>}
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-mist">
+              <span><strong className="font-semibold text-ink">{usuario.totalSeguidores || 0}</strong> seguidores</span>
+              <span><strong className="font-semibold text-ink">{usuario.totalSeguindo || 0}</strong> seguindo</span>
             </div>
           </div>
-
-
+        </div>
+        <div className="mt-8 flex items-center justify-between"><h2 className="text-sm font-semibold text-white">Biblioteca</h2><span className="text-xs text-mist">Explore as leituras →</span></div>
+        <div className="mt-3 grid grid-cols-3 divide-x divide-line">
+          {readingTabs.map(tab => <Link key={tab.key} to={`/users/${id}/library?status=${tab.key}`} className="group py-4 text-center transition hover:bg-white/[0.03]">
+            <span className="block text-3xl font-semibold tabular-nums text-white transition group-hover:text-copper">{leituras[tab.key]?.length || 0}</span>
+            <span className="mt-1 block text-sm text-mist group-hover:text-ink">{tab.label}</span>
+          </Link>)}
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <ReadingSection title="Quero ler" items={leituras.quero_ler} />
-        <ReadingSection title="Lendo" items={leituras.lendo} />
-        <ReadingSection title="Lidos" items={leituras.lido} />
-      </section>
-
-      <section>
-        <h2 className="mb-4 font-display text-3xl">Posts do usuario</h2>
+      <section className="mx-auto w-full max-w-[560px]">
+        <div className="mb-6 flex items-center justify-between"><h2 className="font-display text-2xl">Publicações</h2><span className="text-sm tabular-nums text-mist">{posts.length}</span></div>
+        {posts.length === 0 && <p className="py-10 text-center text-sm text-mist">As próximas histórias compartilhadas aparecerão aqui.</p>}
         <div className="space-y-4">
           {posts.map((post) => (
             <PostCard

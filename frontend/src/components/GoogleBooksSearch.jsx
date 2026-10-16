@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
-import { catalogPageBooks, mergeCatalogBooks } from "../services/bookCatalog";
+import { catalogPageBooks, loadCatalogPage, mergeCatalogBooks } from "../services/bookCatalog";
 import BookCard from "./BookCard";
 import GoogleBooksAttribution from "./GoogleBooksAttribution";
 
@@ -15,6 +15,7 @@ export default function GoogleBooksSearch({ query = "", showSearchForm = false, 
   const [importing, setImporting] = useState(null);
   const [retry, setRetry] = useState(0);
   const pageLock = useRef(false);
+  const sectionRef = useRef(null);
   const importLock = useRef(false);
   const navigate = useNavigate();
   const term = (showSearchForm ? submitted : query).trim();
@@ -26,7 +27,7 @@ export default function GoogleBooksSearch({ query = "", showSearchForm = false, 
   const page = visible?.cursors.length || 1;
   const loading = !status || status.term !== term || status.cursor !== cursor || status.loading;
   const error = status?.term === term ? status.error : "";
-  const books = catalogPageBooks({ query: term, localQuery, localBooks, externalQuery: visible?.term, externalBooks: result?.livros || [], page });
+  const books = catalogPageBooks({ query: term, localQuery, localBooks, externalQuery: visible?.term, externalBooks: result?.livros || [], orderedBooks: result?.orderedBooks, offset: visible?.cursors.at(-1) || 0, end: visible?.pageEnds?.[visible?.cursors.at(-1) || 0] });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -40,19 +41,40 @@ export default function GoogleBooksSearch({ query = "", showSearchForm = false, 
     }
     const timer = setTimeout(async () => {
       try {
-        let accumulated = visible?.result?.livros || [];
-        let result = visible?.result;
         const local = localQuery === term ? localBooks : [];
-        while (!result || (result.hasMore && mergeCatalogBooks(local, accumulated).length <= requestedPage * 15)) {
-          const response = await api.get(term ? "/books/google/search" : "/books/google/discover", { params: { ...(term ? { q: term } : {}), startIndex: result?.nextIndex || 0 }, signal: controller.signal, timeout: 60000 });
-          accumulated = mergeCatalogBooks(accumulated, response.data.livros || []);
-          const previousIndex = result?.nextIndex;
-          result = { ...response.data, livros: accumulated };
-          if (result.nextIndex === previousIndex) { result.hasMore = false; break; }
-        }
+        const offset = history.at(-1) || 0;
+        const result = await loadCatalogPage({
+          previousResult: visible?.result,
+          localBooks: local,
+          offset,
+          onProgress: progress => {
+            if (!controller.signal.aborted && !visible && progress.orderedBooks.length > offset) {
+              setSnapshot({ term, cursors: history, result: progress, pageEnds: {} });
+            }
+          },
+          fetchBatch: async startIndex => {
+            const response = await api.get(term ? "/books/google/search" : "/books/google/discover", {
+              params: { ...(term ? { q: term } : {}), startIndex },
+              signal: controller.signal,
+              timeout: 15000,
+            });
+            return response.data;
+          },
+        });
         if (!controller.signal.aborted) {
-          setSnapshot({ term, cursors: history, result });
-          setStatus({ term, cursor, loading: false, error: "" });
+          const hasPageBooks = mergeCatalogBooks(local, result?.livros || []).length > offset;
+          const keepPage = !hasPageBooks && !!visible;
+          const pageEnds = { ...visible?.pageEnds };
+          if (visible && history.length > visible.cursors.length) {
+            pageEnds[visible.cursors.at(-1) || 0] = offset;
+          }
+          setSnapshot({ term, cursors: keepPage ? visible.cursors : history, result, pageEnds });
+          setStatus({ term, cursor, loading: false, error: !hasPageBooks && result?.hasMore ? "A busca ainda está procurando outros livros. Tente novamente para continuar." : "" });
+          if (!keepPage && visible && history.length !== visible.cursors.length) {
+            requestAnimationFrame(() => {
+              if (!controller.signal.aborted) sectionRef.current?.scrollIntoView({ behavior: "instant", block: "start" });
+            });
+          }
         }
       } catch (err) {
         if (!controller.signal.aborted) setStatus({ term, cursor, loading: false, error: err.response?.data?.message || "Não foi possível carregar esta página. Tente novamente." });
@@ -80,17 +102,17 @@ export default function GoogleBooksSearch({ query = "", showSearchForm = false, 
   function submit(event) { event.preventDefault(); setSubmitted(draft.trim()); setNavigation({ term: draft.trim(), cursors: [0] }); setRetry(value => value + 1); }
 
   return (
-    <section className="space-y-5" aria-label="Catálogo de livros">
-      <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="font-display text-3xl text-white">{term ? "Resultados da busca" : "Explore os livros"}</h2><p className="mt-2 text-sm text-mist">{term ? "Edições em português para sua próxima leitura." : "Clássicos e histórias conhecidas, em edições em português."}</p></div><span className="text-sm text-mist">{books.length} livros</span></div>
+    <section ref={sectionRef} className="space-y-5 scroll-mt-6" aria-label="Catálogo de livros">
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="font-display text-3xl text-white">{term ? "Resultados da busca" : "Explore os livros"}</h2>{!term && <p className="mt-2 text-sm text-mist">Descubra histórias, com preferência por edições em português.</p>}</div><span className="text-sm text-mist">{books.length} livros</span></div>
       {showSearchForm && <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row"><label className="flex-1"><span className="sr-only">Título, autor ou ISBN</span><input value={draft} onChange={event => setDraft(event.target.value)} minLength={2} maxLength={200} required placeholder="Busque por título, autor ou ISBN" className="w-full rounded-2xl border border-line px-4 py-3 outline-none focus:border-copper" /></label><button className="rounded-2xl bg-gradient-to-r from-forest to-berry px-6 py-3 font-semibold text-white">Buscar livros</button></form>}
       {importError && <p role="alert" className="rounded-xl border border-forest/40 bg-forest/10 p-4 text-sm text-glow">{importError}</p>}
       {localError && <p role="alert" className="text-sm text-mist">{localError} <button onClick={onRetryLocal} className="text-copper underline">Tentar novamente</button></p>}
       {error && <div role="alert" className="rounded-2xl border border-line bg-panelSoft p-4 text-sm text-mist"><p>{error}</p><button onClick={() => setRetry(value => value + 1)} className="mt-2 font-semibold text-copper">Tentar novamente</button></div>}
       {(loading || localLoading) && <p role="status" className="text-sm text-mist">Carregando livros…</p>}
-      {!loading && !localLoading && !error && !localError && books.length === 0 && <p className="rounded-2xl border border-dashed border-line p-5 text-mist">Nenhuma edição em português encontrada. Experimente outro título, autor ou ISBN.</p>}
+      {!loading && !localLoading && !error && !localError && books.length === 0 && <p className="rounded-2xl border border-dashed border-line p-5 text-mist">{"Nenhuma edição em português ou inglês encontrada. Experimente outro título, autor ou ISBN."}</p>}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{books.map(book => <BookCard key={book._id || book.googleBooksId} book={book} onOpen={openBook} opening={importing === book.googleBooksId} disabled={!!importing} />)}</div>
       {books.some(book => book.googleBooksId) && <div className="flex justify-end border-t border-line/60 pt-3"><GoogleBooksAttribution /></div>}
-      {result && <nav aria-label="Páginas da busca de livros" className="flex items-center justify-center gap-4"><button disabled={loading || localLoading || page === 1} onClick={() => requestPage(visible.cursors.slice(0, -1))} className="rounded-xl border border-line px-4 py-2 text-sm disabled:opacity-40">← Anterior</button><span className="text-sm text-mist">Página {page}</span><button disabled={loading || localLoading || (!result.hasMore && mergeCatalogBooks(localQuery === term ? localBooks : [], result.livros).length <= page * 15)} onClick={() => requestPage([...visible.cursors, result.nextIndex])} className="rounded-xl border border-line px-4 py-2 text-sm disabled:opacity-40">Próxima →</button></nav>}
+      {result && <nav aria-label="Páginas da busca de livros" className="flex items-center justify-center gap-4"><button disabled={loading || localLoading || page === 1} onClick={() => requestPage(visible.cursors.slice(0, -1))} className="rounded-xl border border-line px-4 py-2 text-sm disabled:opacity-40">← Anterior</button><span className="text-sm text-mist">Página {page}</span><button disabled={loading || localLoading || (!result.hasMore && mergeCatalogBooks(localQuery === term ? localBooks : [], result.livros).length <= (visible.cursors.at(-1) || 0) + books.length)} onClick={() => requestPage([...visible.cursors, (visible.cursors.at(-1) || 0) + books.length])} className="rounded-xl border border-line px-4 py-2 text-sm disabled:opacity-40">Próxima →</button></nav>}
     </section>
   );
 }

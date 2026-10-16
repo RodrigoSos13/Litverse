@@ -110,6 +110,7 @@ test("Google Books exige login e configuração, importa sem duplicar e preserva
     globalThis.fetch = (url, options) => {
       if (String(url).startsWith("https://www.googleapis.com/books/v1/volumes")) {
         upstreamCalls++;
+        if (new URL(url).searchParams.get("langRestrict") === "en") return Promise.resolve(Response.json({ totalItems: 0 }));
         return Promise.resolve(Response.json(new URL(url).pathname.endsWith("/test_volume") ? volume : { totalItems: 1, items: [volume] }));
       }
       return originalFetch(url, options);
@@ -131,23 +132,24 @@ test("Google Books exige login e configuração, importa sem duplicar e preserva
     assert.equal(first.data.totalPaginas, 150);
     assert.equal(first.data.mediaAvaliacoes, 0);
     assert.equal(await Book.countDocuments({ googleBooksId: "test_volume" }), 1);
-    assert.equal(upstreamCalls, 2);
+    assert.equal(upstreamCalls, 3);
     await Book.findByIdAndUpdate(first.data._id, { mediaAvaliacoes: 4, totalAvaliacoes: 1 });
     const again = await request("/books/google/import", { method: "POST", body: { googleBooksId: "test_volume" } });
     assert.equal(again.status, 200);
     assert.equal(again.data.mediaAvaliacoes, 4);
-    assert.equal(upstreamCalls, 2);
+    assert.equal(upstreamCalls, 3);
     const saved = await request("/books/google/search?q=Imported&language=pt");
     assert.equal(saved.data.livros[0].localId, first.data._id);
     assert.equal((await request("/books/google/search?q=test&language=en")).status, 400);
     const english = await Book.create({ titulo: "English", autor: "Author", genero: "Test", descricao: "Test", idioma: "en", googleBooksId: "english_volume" });
-    assert.equal((await request("/books/google/import", { method: "POST", body: { googleBooksId: "english_volume" } })).status, 400);
-    assert.equal((await request("/books")).data.some(book => book._id === String(english._id)), false);
-    assert.equal((await request("/books", { method: "POST", body: { titulo: "English manual", autor: "Author", genero: "Test", descricao: "Test", idioma: "en" } })).status, 400);
+    assert.equal((await request("/books/google/import", { method: "POST", body: { googleBooksId: "english_volume" } })).status, 200);
+    assert.equal((await request("/books")).data.some(book => book._id === String(english._id)), true);
+    assert.equal((await request("/books", { method: "POST", body: { titulo: "English manual", autor: "Author", genero: "Test", descricao: "Test", idioma: "en" } })).status, 201);
     const manual = await request("/books", { method: "POST", body: { titulo: "Manual title", autor: "Manual author", genero: "Test", descricao: "Manual description", totalPaginas: 200, editora: "Publisher", googleBooksId: "forged_volume" } });
     assert.equal(manual.status, 201);
     assert.equal(manual.data.googleBooksId, undefined);
     assert.equal(manual.data.totalPaginas, 200);
+    assert.equal(manual.data.idioma, "pt");
   } finally {
     globalThis.fetch = originalFetch;
     if (previousKey === undefined) delete process.env.GOOGLE_BOOKS_API_KEY;

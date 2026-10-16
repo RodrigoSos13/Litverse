@@ -72,7 +72,7 @@ function HomePage() {
 
         <GoogleBooksSearch query={search} localBooks={current.books} localQuery={current.term} localLoading={current.loading} localError={current.error} onRetryLocal={() => loadCatalog()} />
 
-        <section>
+        <section className="mx-auto w-full max-w-[560px]">
           <h2 className="mb-4 font-display text-3xl text-white">Posts recentes</h2>
           <div className="space-y-4">
             {posts.map((post) => (

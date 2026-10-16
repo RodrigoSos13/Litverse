@@ -1,0 +1,21 @@
+# Desenvolvimento local: aplicado automaticamente por `docker compose up`.
+# Para servir o build estático com Nginx, use apenas `-f compose.yaml`.
+services:
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    environment:
+      VITE_API_URL: /api
+      API_PROXY_TARGET: http://backend:5000
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - ./frontend/index.html:/app/index.html:ro
+      - ./frontend/vite.config.js:/app/vite.config.js:ro
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js:ro
+      - ./frontend/postcss.config.js:/app/postcss.config.js:ro
+
+  backend:
+    command: ["node", "--watch", "src/server.js"]
+    volumes:
+      - ./backend/src:/app/src:ro

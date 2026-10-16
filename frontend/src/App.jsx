@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import MainLayout from "./components/MainLayout";
 import HomePage from "./pages/HomePage";
+import UserLibraryPage from "./pages/UserLibraryPage";
 import UserProfilePage from "./pages/UserProfilePage";
 import BookPage from "./pages/BookPage";
 import CreatePostPage from "./pages/CreatePostPage";
@@ -23,6 +24,7 @@ function App() {
       <Route element={<MainLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/users/:id" element={<UserProfilePage />} />
+        <Route path="/users/:id/library" element={<UserLibraryPage />} />
         <Route path="/books/:id" element={<BookPage />} />
         <Route path="/create-book" element={<CreateBookPage />} />
         <Route path="/create-post" element={<CreatePostPage />} />

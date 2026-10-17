@@ -71,7 +71,7 @@ export default function BookCatalog({ query = "", showSearchForm = false }) {
       {error && <div role="alert" className="rounded-2xl border border-line bg-panelSoft p-4 text-sm text-mist"><p>{error}</p><button onClick={() => setRetry(value => value + 1)} className="mt-2 font-semibold text-copper">Tentar novamente</button></div>}
       {loading && <p role="status" className="text-sm text-mist">Carregando livros…</p>}
       {!loading && !error && books.length === 0 && <p className="rounded-2xl border border-dashed border-line p-5 text-mist">{term ? "Nenhum livro encontrado no catálogo. Experimente outro título, autor ou ISBN." : "O catálogo ainda não tem livros. Você pode cadastrar sua primeira leitura."}</p>}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{books.map(book => <BookCard key={book._id} book={book} />)}</div>
+      <div className="grid gap-4 xl:grid-cols-2">{books.map(book => <BookCard key={book._id} book={book} />)}</div>
       {visible && books.length > 0 && <nav aria-label="Páginas da busca de livros" className="flex items-center justify-center gap-4">
         <button disabled={loading || page === 1} onClick={() => requestPage(page - 1)} className="rounded-xl border border-line px-4 py-2 text-sm disabled:opacity-40">← Anterior</button>
         <span className="text-sm text-mist">Página {page}</span>

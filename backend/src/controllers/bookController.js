@@ -48,11 +48,12 @@ export async function getCatalog(req, res) {
     }
     const filter = { idioma: { $in: [/^pt(?:-(?:br|pt))?$/i, /^portugu[eê]s$/i, /^portuguese$/i, /^en(?:-[a-z]{2})?$/i, /^english$/i, /^ingl[eê]s$/i] } };
     if (search.trim()) Object.assign(filter, indexedBookSearchFilter(search));
+    const pageSize = 14;
     const books = await Book.find(filter)
       .select("-searchTokens -titleTokens -authorTokens -isbnSearch -catalogVersion")
       .sort({ catalogLanguageRank: 1, catalogHasCover: -1, _id: 1 })
-      .skip((page - 1) * 15).limit(16).lean();
-    res.json({ livros: books.slice(0, 15), page, hasMore: books.length > 15 });
+      .skip((page - 1) * pageSize).limit(pageSize + 1).lean();
+    res.json({ livros: books.slice(0, pageSize), page, hasMore: books.length > pageSize });
   } catch {
     res.status(503).json({ message: "Não foi possível consultar o catálogo. Tente novamente." });
   }

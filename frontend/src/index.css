@@ -36,8 +36,19 @@ body {
   }
 }
 
+:root:has(.auth-screen) {
+  scrollbar-gutter: stable;
+}
+
 .auth-screen {
   background: radial-gradient(ellipse at 12% 20%, rgba(182, 119, 86, .12), transparent 45%), radial-gradient(ellipse at 75% 80%, rgba(197, 59, 76, .08), transparent 45%), #09111f;
+}
+.auth-hero {
+  background: radial-gradient(ellipse at bottom left, rgba(36, 109, 88, .18), transparent 75%);
+}
+.auth-card {
+  background: linear-gradient(155deg, rgba(25, 37, 52, .96), rgba(13, 23, 37, .98));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .2), inset 0 1px 0 rgba(255, 255, 255, .025);
 }
 button:focus-visible, a:focus-visible { outline: 2px solid #d7a780; outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import api from "../services/api";
 import BookCover from "../components/BookCover";
@@ -6,7 +6,7 @@ import StarRating from "../components/StarRating";
 import FanartComposer from "../components/FanartComposer";
 
 const initialReadingForm = {
-  status: "quero_ler",
+  status: null,
   nota: "",
 };
 
@@ -21,8 +21,31 @@ function BookPage() {
   const { currentUserId } = useOutletContext();
   const [data, setData] = useState(null);
   const [readingForm, setReadingForm] = useState(initialReadingForm);
+  const [savedStatus, setSavedStatus] = useState(null);
   const [savingReading, setSavingReading] = useState(false);
   const [activeReadingMenu, setActiveReadingMenu] = useState(null);
+
+  const readingActionsRef = useRef(null);
+  const readingTriggerRef = useRef(null);
+
+  useEffect(() => {
+    if (!activeReadingMenu) return;
+    function dismiss(event) {
+      if (!readingActionsRef.current?.contains(event.target)) setActiveReadingMenu(null);
+    }
+    function escape(event) {
+      if (event.key === "Escape") {
+        setActiveReadingMenu(null);
+        readingTriggerRef.current?.focus();
+      }
+    }
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [activeReadingMenu]);
 
   function loadBookPage() {
     return api.get(`/books/${id}`).then((response) => setData(response.data));
@@ -35,25 +58,33 @@ function BookPage() {
   useEffect(() => {
     if (!currentUserId) {
       setReadingForm(initialReadingForm);
+      setSavedStatus(null);
       return;
     }
 
+    const controller = new AbortController();
+    setSavedStatus(null);
+    setReadingForm(initialReadingForm);
     api
       .get("/readings", {
         params: {
           user: currentUserId,
           book: id,
         },
+        signal: controller.signal,
       })
       .then((response) => {
+        if (controller.signal.aborted) return;
         const reading = response.data[0];
+        setSavedStatus(reading?.status || null);
 
         setReadingForm({
-          status: reading?.status || "quero_ler",
+          status: reading?.status || null,
           nota: reading?.nota ?? "",
         });
       })
-      .catch(console.error);
+      .catch(error => { if (!controller.signal.aborted) console.error(error); });
+    return () => controller.abort();
   }, [currentUserId, id]);
 
   if (!data) {
@@ -82,6 +113,7 @@ function BookPage() {
         status: readingForm.status,
         nota: readingForm.nota === "" ? null : Number(readingForm.nota),
       });
+      setSavedStatus(readingForm.status);
       await loadBookPage();
       setActiveReadingMenu(null);
     } catch (error) {
@@ -106,6 +138,7 @@ function BookPage() {
         nota: readingForm.nota === "" ? null : Number(readingForm.nota),
       });
       setReadingForm((current) => ({ ...current, status: nextStatus }));
+      setSavedStatus(nextStatus);
       await loadBookPage();
       setActiveReadingMenu(null);
     } catch (error) {
@@ -124,28 +157,112 @@ function BookPage() {
             <BookCover url={data.livro.urlCapa} title={data.livro.titulo} className="h-full w-full rounded-2xl object-contain" />
             <div
               className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-copper/30 bg-midnight/90 px-3 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur-sm"
-              aria-label={data.livro.totalAvaliacoes > 0 ? `Avaliação média: ${data.livro.mediaAvaliacoes} de 5` : "Sem avaliações"}
+              aria-label={data.livro.totalAvaliacoes > 0 ? `Avaliação média: ${data.livro.mediaAvaliacoes} de 5, ${data.livro.totalAvaliacoes} ${data.livro.totalAvaliacoes === 1 ? "avaliação" : "avaliações"}` : "Sem avaliações"}
               title={data.livro.totalAvaliacoes > 0 ? `${data.livro.totalAvaliacoes} avaliações` : "Sem avaliações ainda"}
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-copper"><path d="m12 2.5 2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.52l-5.88 3.09 1.12-6.55L2.48 9.42l6.58-.96L12 2.5Z" /></svg>
-              <span className="tabular-nums">{data.livro.totalAvaliacoes > 0 ? Number(data.livro.mediaAvaliacoes || 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : "—"}<span className="ml-1 text-xs font-normal text-mist">/5</span></span>
+              {data.livro.totalAvaliacoes > 0 && <span className="tabular-nums">{Number(data.livro.mediaAvaliacoes || 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</span>}
+              <span className="text-[10px] font-normal text-mist/80">{data.livro.totalAvaliacoes > 0 ? `(${Number(data.livro.totalAvaliacoes).toLocaleString("pt-BR")} ${data.livro.totalAvaliacoes === 1 ? "avaliação" : "avaliações"})` : "(0 avaliações)"}</span>
             </div>
           </div>
 
-          <div className="mt-4 space-y-3 rounded-3xl border border-line bg-panelSoft p-4 text-sm text-mist">
-            <p className="text-xs text-mist">{data.livro.totalAvaliacoes || 0} {data.livro.totalAvaliacoes === 1 ? "avaliação" : "avaliações"}</p>
+          <dl aria-label="Leituras da comunidade" className="mt-5 space-y-3 px-1">
+            {[
+              { key: "lido", label: "Já leram", icon: <><path d="M20 11.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9" /><path d="m10 9 3 3 8-8M4 17h16" /></> },
+              { key: "lendo", label: "Lendo agora", icon: <><path d="M12 5v15M12 5C9 3 5 3 3 4v15c3-1 6-1 9 1 3-2 6-2 9-1V4c-2-1-6-1-9 1Z" /></> },
+              { key: "quero_ler", label: "Querem ler", icon: <path d="M6 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17l-6-4-6 4V4Z" /> },
+            ].map(({ key, label, icon }) => (
+              <div key={key} className="flex items-center gap-3">
+                <dt className="flex shrink-0 items-center gap-2.5 text-xs text-mist">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-mist/70" aria-hidden="true">{icon}</svg>
+                  {label}
+                </dt>
+                <span className="h-px min-w-2 flex-1 bg-line/50" aria-hidden="true" />
+                <dd className="text-xs font-semibold tabular-nums text-ink">{Number(statsMap[key] || 0).toLocaleString("pt-BR")}</dd>
+              </div>
+            ))}
+          </dl>
 
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-2xl bg-midnight/70 px-3 py-2">
-                {statsMap.lido || 0} lidos
-              </span>
-              <span className="rounded-2xl bg-midnight/70 px-3 py-2">
-                {statsMap.lendo || 0} lendo
-              </span>
-              <span className="rounded-2xl bg-midnight/70 px-3 py-2">
-                {statsMap.quero_ler || 0} querem ler
-              </span>
-            </div>
+          <div className="mt-5 border-t border-line/60 pt-4">
+            {!currentUserId ? (
+              <p className="text-sm text-mist">
+                Abra um perfil para avaliar ou adicionar este livro a sua lista.
+              </p>
+            ) : (
+              <div ref={readingActionsRef} className="relative">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={event => {
+                      readingTriggerRef.current = event.currentTarget;
+                      setActiveReadingMenu(current => current === "rating" ? null : "rating");
+                    }}
+                    aria-expanded={activeReadingMenu === "rating"}
+                    aria-controls="book-reading-popover"
+                    className="rounded-xl bg-gradient-to-r from-forest to-berry px-3 py-2.5 text-xs font-semibold text-white transition hover:brightness-110"
+                  >
+                    Avaliar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={event => {
+                      readingTriggerRef.current = event.currentTarget;
+                      setActiveReadingMenu(current => current === "status" ? null : "status");
+                    }}
+                    aria-expanded={activeReadingMenu === "status"}
+                    aria-controls="book-reading-popover"
+                    className="rounded-xl border border-line bg-panelSoft px-3 py-2.5 text-xs font-semibold text-white transition hover:border-mist/50"
+                  >
+                    Adicionar
+                  </button>
+                </div>
+
+                {activeReadingMenu && <div id="book-reading-popover" role="region" aria-label={activeReadingMenu === "rating" ? "Avaliar livro" : "Adicionar à lista"} className="absolute inset-x-0 top-full z-40 mt-2 rounded-2xl border border-line bg-panel p-3 shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-white">{activeReadingMenu === "rating" ? "Avaliar livro" : "Adicionar à lista"}</p>
+                    <button type="button" aria-label="Fechar opções" onClick={() => { setActiveReadingMenu(null); readingTriggerRef.current?.focus(); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-mist hover:bg-panelSoft hover:text-white">×</button>
+                  </div>
+                {activeReadingMenu === "rating" && (
+                  <form className="space-y-3" onSubmit={handleRatingSubmit}>
+                    <StarRating
+                      value={readingForm.nota}
+                      onChange={(nota) => setReadingForm((current) => ({ ...current, nota }))}
+                      disabled={savingReading}
+                    />
+
+                    <button
+                      type="submit"
+                      disabled={savingReading || readingForm.nota === ""}
+                      className="w-full rounded-lg bg-forest px-3 py-2 text-xs font-semibold text-white transition hover:bg-berry disabled:opacity-60"
+                    >
+                      {savingReading ? "Salvando..." : "Salvar nota"}
+                    </button>
+                  </form>
+                )}
+
+                {activeReadingMenu === "status" && (
+                  <div className="grid gap-1.5">
+                    {Object.entries(statusLabels).map(([status, label]) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => handleStatusSubmit(status)}
+                        disabled={savingReading}
+                        aria-pressed={savedStatus === status}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition enabled:hover:border-copper enabled:hover:bg-copper enabled:hover:text-midnight focus-visible:border-copper focus-visible:bg-copper focus-visible:text-midnight disabled:opacity-60 ${
+                          savedStatus === status
+                            ? "border-copper bg-copper text-midnight"
+                            : "border-line bg-midnight/70 text-white"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                </div>}
+              </div>
+            )}
           </div>
         </div>
 
@@ -182,76 +299,9 @@ function BookPage() {
               </span>
             )}
           </div>
-          <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300">{data.livro.descricao}</p>
+          <p className="mt-5 max-w-3xl text-justify text-sm leading-7 text-slate-300">{data.livro.descricao}</p>
 
-          <div className="mt-6">
-            {!currentUserId ? (
-              <p className="text-sm text-mist">
-                Abra um perfil para avaliar ou adicionar este livro a sua lista.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActiveReadingMenu((current) => (current === "rating" ? null : "rating"))
-                    }
-                    className="rounded-full bg-gradient-to-r from-forest to-berry px-6 py-3 font-semibold text-white transition hover:brightness-110"
-                  >
-                    Avaliar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActiveReadingMenu((current) => (current === "status" ? null : "status"))
-                    }
-                    className="rounded-full bg-gradient-to-r from-forest to-berry px-6 py-3 font-semibold text-white transition hover:brightness-110"
-                  >
-                    Adicionar
-                  </button>
-                </div>
 
-                {activeReadingMenu === "rating" && (
-                  <form className="flex flex-wrap items-end gap-3" onSubmit={handleRatingSubmit}>
-                    <StarRating
-                      value={readingForm.nota}
-                      onChange={(nota) => setReadingForm((current) => ({ ...current, nota }))}
-                      disabled={savingReading}
-                    />
-
-                    <button
-                      type="submit"
-                      disabled={savingReading || readingForm.nota === ""}
-                      className="rounded-full bg-copper px-6 py-3 font-semibold text-midnight transition hover:brightness-110 disabled:opacity-60"
-                    >
-                      {savingReading ? "Salvando..." : "Salvar nota"}
-                    </button>
-                  </form>
-                )}
-
-                {activeReadingMenu === "status" && (
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {Object.entries(statusLabels).map(([status, label]) => (
-                      <button
-                        key={status}
-                        type="button"
-                        onClick={() => handleStatusSubmit(status)}
-                        disabled={savingReading}
-                        className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition disabled:opacity-60 ${
-                          readingForm.status === status
-                            ? "border-copper bg-copper text-midnight"
-                            : "border-line bg-midnight/70 text-white hover:border-copper"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       </section>
 

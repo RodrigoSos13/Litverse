@@ -9,8 +9,11 @@ function StarRating({ value, onChange, disabled = false }) {
 
   return (
     <fieldset disabled={disabled}>
-      <legend className="mb-2 text-sm font-semibold text-mist">
+      <legend className="mb-2 flex w-full items-center justify-between gap-3 text-sm font-semibold text-mist">
         Sua avaliação
+        <span className="text-xs font-semibold tabular-nums text-copper" aria-live="polite" aria-atomic="true">
+          {hasValue ? `${Number(preview).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}/5` : ""}
+        </span>
       </legend>
       <div className="flex gap-1" onPointerLeave={() => setHovered(null)}>
         {[1, 2, 3, 4, 5].map((star) => {
@@ -47,9 +50,6 @@ function StarRating({ value, onChange, disabled = false }) {
           );
         })}
       </div>
-      <p className="mt-2 text-sm text-mist" aria-live="polite">
-        {hasValue ? `${Number(preview).toLocaleString("pt-BR")}/5` : "Selecione meia estrela ou uma estrela inteira."}
-      </p>
     </fieldset>
   );
 }

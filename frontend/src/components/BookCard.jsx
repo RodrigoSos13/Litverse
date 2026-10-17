@@ -17,9 +17,10 @@ function BookCard({ book, onOpen, opening = false, disabled = false }) {
       <p className="min-w-0 line-clamp-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-copper">
         {book.genero}
       </p>
-      <span className="flex shrink-0 items-center gap-1.5 text-sm font-semibold text-white" aria-label={book.totalAvaliacoes > 0 ? `Avaliação média: ${book.mediaAvaliacoes} de 5` : "Sem avaliações"}>
+      <span className="flex shrink-0 items-center gap-1.5 text-sm font-semibold text-white" aria-label={book.totalAvaliacoes > 0 ? `Avaliação média: ${book.mediaAvaliacoes} de 5, ${book.totalAvaliacoes} ${book.totalAvaliacoes === 1 ? "avaliação" : "avaliações"}` : "Sem avaliações"}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-copper" aria-hidden="true"><path d="m12 3 2.78 5.63L21 9.54l-4.5 4.39L17.56 20 12 17.08 6.44 20l1.06-6.07L3 9.54l6.22-.91L12 3Z" /></svg>
-        <span className="tabular-nums">{book.totalAvaliacoes > 0 ? Number(book.mediaAvaliacoes || 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : "—"}<span className="ml-1 text-xs font-normal text-mist">/5</span></span>
+        {book.totalAvaliacoes > 0 && <span className="tabular-nums">{Number(book.mediaAvaliacoes || 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</span>}
+        <span className="text-[10px] font-normal text-mist/80">{book.totalAvaliacoes > 0 ? `(${Number(book.totalAvaliacoes).toLocaleString("pt-BR")} ${book.totalAvaliacoes === 1 ? "avaliação" : "avaliações"})` : "(0 avaliações)"}</span>
       </span>
       </div>
       <h3 className="mt-1 line-clamp-2 break-words font-display text-xl leading-tight text-white">

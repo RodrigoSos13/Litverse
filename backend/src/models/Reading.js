@@ -14,8 +14,8 @@ const readingSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["quero_ler", "lendo", "lido"],
-      required: true,
+      enum: ["quero_ler", "lendo", "lido", null],
+      default: null,
     },
     nota: {
       type: Number,

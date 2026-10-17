@@ -32,7 +32,6 @@ export default function UserLibraryPage() {
       <header className="mb-8 mt-8">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-copper">Coleção pessoal</p>
         <h1 className="mt-3 font-display text-3xl text-white sm:text-4xl">{id === currentUserId ? "Minha biblioteca" : `Biblioteca de ${profile.usuario.nome}`}</h1>
-        <p className="mt-3 text-sm text-mist">Cada leitura, no seu momento.</p>
       </header>
       <div role="tablist" aria-label="Status de leitura" onKeyDown={handleKeyDown} className="relative grid grid-cols-3 border-b border-line">
         {readingTabs.map((tab, index) => <button key={tab.key} ref={node => { tabs.current[index] = node; }} type="button" role="tab" id={`tab-${tab.key}`} aria-controls={`panel-${tab.key}`} aria-selected={index === activeIndex} tabIndex={index === activeIndex ? 0 : -1} onClick={() => selectTab(index)} className={`flex items-center justify-center gap-2 px-1 py-4 text-sm transition sm:gap-3 ${index === activeIndex ? "font-semibold text-white" : "text-mist hover:text-white"}`}>

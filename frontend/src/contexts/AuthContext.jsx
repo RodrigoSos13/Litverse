@@ -23,7 +23,11 @@ export function AuthProvider({ children }) {
     const response = await api.post(`/auth/${mode}`, values);
     setUser(response.data);
   }
+  async function updateProfile(values) {
+    const response = await api.put(`/users/${user._id}`, values);
+    setUser(current => ({ ...current, ...response.data }));
+  }
   async function logout() { await api.post("/auth/logout"); setUser(null); }
-  return <AuthContext.Provider value={{ user, loading, error, restore, authenticate, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, error, restore, authenticate, logout, updateProfile }}>{children}</AuthContext.Provider>;
 }
 export const useAuth = () => useContext(AuthContext);

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import useUserProfile, { readingTabs } from "../hooks/useUserProfile";
+import EditProfileDialog from "../components/EditProfileDialog";
 import PostCard from "../components/PostCard";
 
 function UserProfilePage() {
@@ -10,6 +11,7 @@ function UserProfilePage() {
   const { profile, error, refresh: loadProfile } = useUserProfile(id);
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const [editing, setEditing] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
 
@@ -33,6 +35,7 @@ function UserProfilePage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-10 pb-8">
+      {editing && id === currentUserId && <EditProfileDialog key={id} user={usuario} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); loadProfile(); }} />}
       <section aria-label="Perfil" className="border-b border-line pb-8 pt-4 sm:pt-8">
         <div className="flex items-start gap-5 sm:gap-8">
           {usuario.urlAvatar ? <img src={usuario.urlAvatar} alt={usuario.nome} className="h-20 w-20 shrink-0 rounded-full object-cover ring-4 ring-white/5 sm:h-28 sm:w-28" /> : <div aria-hidden="true" className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-forest/25 font-display text-3xl text-glow ring-4 ring-white/5 sm:h-28 sm:w-28">{usuario.nome?.slice(0, 1).toUpperCase()}</div>}
@@ -46,6 +49,7 @@ function UserProfilePage() {
               <span><strong className="font-semibold text-ink">{usuario.totalSeguindo || 0}</strong> seguindo</span>
             </div>
           </div>
+          {id === currentUserId && <button type="button" onClick={() => setEditing(true)} aria-label="Editar meu perfil" title="Editar perfil" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line text-mist transition hover:border-copper/50 hover:bg-panelSoft hover:text-copper"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5M4 20l5-1L21 7a2.1 2.1 0 0 0-5-5L4 14l-1 7 6-2" /></svg></button>}
         </div>
         <div className="mt-8 flex items-center justify-between"><h2 className="text-sm font-semibold text-white">Biblioteca</h2><span className="text-xs text-mist">Explore as leituras →</span></div>
         <div className="mt-3 grid grid-cols-3 divide-x divide-line">

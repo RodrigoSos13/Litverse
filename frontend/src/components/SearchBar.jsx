@@ -1,8 +1,10 @@
 import { useEffect, useId, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import BookCover from "./BookCover";
 
 export default function SearchBar({ value, onSubmit }) {
+  const navigate = useNavigate();
   const [draft, setDraft] = useState(value);
   const [focused, setFocused] = useState(false);
   const [active, setActive] = useState(-1);
@@ -29,11 +31,15 @@ export default function SearchBar({ value, onSubmit }) {
   }, [term, focused]);
 
   function confirm(book) {
-    const query = book ? `intitle:${book.titulo}` : term;
-    setDraft(query);
     setFocused(false);
     setActive(-1);
-    onSubmit(query);
+    if (book) {
+      setDraft(value);
+      navigate(`/books/${book._id}`);
+      return;
+    }
+    setDraft(term);
+    onSubmit(term);
   }
   function handleKeyDown(event) {
     if (event.key === "Escape") { setFocused(false); setActive(-1); }

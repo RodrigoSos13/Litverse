@@ -4,19 +4,17 @@ import SearchBar from "./SearchBar";
 import { useAuth } from "../contexts/AuthContext";
 
 function MainLayout() {
-  const [search, setSearch] = useState("");
   const [homeVisit, setHomeVisit] = useState(0);
   const { user } = useAuth();
   const currentUserId = user._id;
   const location = useLocation();
   const navigate = useNavigate();
+  const search = new URLSearchParams(location.search).get("search") || "";
 
   function handleSearchSubmit(nextValue) {
-    setSearch(nextValue);
-
-    if (location.pathname !== "/") {
-      navigate("/");
-    }
+    const params = new URLSearchParams();
+    if (nextValue.trim()) params.set("search", nextValue.trim());
+    navigate({ pathname: "/", search: params.toString() });
   }
 
   return (
@@ -25,7 +23,6 @@ function MainLayout() {
         <div className="mx-auto grid max-w-7xl grid-cols-[auto_1fr] items-center gap-x-3 gap-y-4 px-4 py-4 sm:gap-x-6 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-x-10 lg:py-5">
           <NavLink to="/" aria-label="LitVerse — página inicial" onClick={event => {
             if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-            setSearch("");
             setHomeVisit(visit => visit + 1);
             window.scrollTo({ top: 0, behavior: "instant" });
           }} className="rounded-sm font-display text-2xl font-bold tracking-tight text-white outline-none focus-visible:ring-2 focus-visible:ring-copper sm:text-3xl">

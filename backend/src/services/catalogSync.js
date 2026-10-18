@@ -31,7 +31,7 @@ export async function saveCatalogVolumes(volumes) {
   let inserted = 0;
   let updated = 0;
   for (const volume of volumes) {
-    if (!volume?.googleBooksId || !isSupportedLanguage(volume.idioma)) continue;
+    if (!volume?.googleBooksId || !isSupportedLanguage(volume.idioma) || !catalogFields(volume).catalogHasCover) continue;
     // Um cadastro manual ou outra edição com o mesmo ISBN mantém seu ID.
     const existing = await Book.findOne({ $or: [
       { googleBooksId: volume.googleBooksId },

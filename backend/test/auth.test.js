@@ -196,7 +196,7 @@ test("migração torna livros antigos pesquisáveis sem mudar IDs e avaliações
 });
 
 test("sincronização reutiliza IDs, preserva avaliações e evita duplicar ISBN manual", async () => {
-  const volume = { googleBooksId: "synced_volume", titulo: "Primeiro título", autor: "Autor Sync", genero: "Teste", descricao: "Descrição", idioma: "pt", isbn: "9781111111111", urlCapa: "" };
+  const volume = { googleBooksId: "synced_volume", titulo: "Primeiro título", autor: "Autor Sync", genero: "Teste", descricao: "Descrição", idioma: "pt", isbn: "9781111111111", urlCapa: "https://example.com/first-cover.jpg" };
   assert.equal((await saveCatalogVolumes([volume])).inserted, 1);
   const stored = await Book.findOne({ googleBooksId: volume.googleBooksId });
   await Book.updateOne({ _id: stored._id }, { $set: { mediaAvaliacoes: 4, totalAvaliacoes: 3 } });
@@ -210,6 +210,17 @@ test("sincronização reutiliza IDs, preserva avaliações e evita duplicar ISBN
   await Book.create({ titulo: "Manual", autor: "Manual", genero: "Teste", descricao: "Manual", isbn: "9782222222222" });
   await saveCatalogVolumes([{ ...volume, googleBooksId: "manual_duplicate", isbn: "9782222222222" }]);
   assert.equal(await Book.countDocuments({ isbn: "9782222222222" }), 1);
+});
+
+test("sincronização descarta livros sem capa e preserva a capa de livros existentes", async () => {
+  const volume = { googleBooksId: "cover_required", titulo: "Livro com capa", autor: "Autor", genero: "Teste", descricao: "Descrição", idioma: "pt", urlCapa: "https://example.com/cover.jpg" };
+  for (const urlCapa of [undefined, null, "", "   "]) {
+    assert.deepEqual(await saveCatalogVolumes([{ ...volume, urlCapa }]), { inserted: 0, updated: 0 });
+  }
+  assert.equal(await Book.countDocuments({ googleBooksId: volume.googleBooksId }), 0);
+  await saveCatalogVolumes([volume]);
+  assert.deepEqual(await saveCatalogVolumes([{ ...volume, urlCapa: "" }]), { inserted: 0, updated: 0 });
+  assert.equal((await Book.findOne({ googleBooksId: volume.googleBooksId })).urlCapa, volume.urlCapa);
 });
 
 test("sincronização retoma cursor e mantém progresso após falha externa", async () => {

@@ -1,22 +1,27 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import BookCard from "./BookCard";
 
 export default function BookCatalog({ query = "", showSearchForm = false }) {
-  const [draft, setDraft] = useState("");
-  const [submitted, setSubmitted] = useState("");
-  const [navigation, setNavigation] = useState({ term: "", page: 1 });
+  const [params, setParams] = useSearchParams();
+  const [draft, setDraft] = useState(() => params.get("search") || "");
   const [snapshot, setSnapshot] = useState(null);
   const [status, setStatus] = useState(null);
   const [retry, setRetry] = useState(0);
   const sectionRef = useRef(null);
-  const term = (showSearchForm ? submitted : query).trim();
-  const requestedPage = navigation.term === term ? navigation.page : 1;
+  const term = (showSearchForm ? params.get("search") || "" : query).trim();
+  const pageParam = Number(params.get("page") || 1);
+  const requestedPage = Number.isSafeInteger(pageParam) && pageParam > 0 ? pageParam : 1;
   const visible = snapshot?.term === term ? snapshot : null;
   const books = visible?.livros || [];
   const page = visible?.page || 1;
   const loading = !status || status.term !== term || status.page !== requestedPage || status.loading;
   const error = status?.term === term ? status.error : "";
+
+  useEffect(() => {
+    if (showSearchForm) setDraft(term);
+  }, [showSearchForm, term]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -48,13 +53,22 @@ export default function BookCatalog({ query = "", showSearchForm = false }) {
 
   function requestPage(nextPage) {
     if (loading) return;
-    setNavigation({ term, page: nextPage });
-    setRetry(value => value + 1);
+    setParams(previous => {
+      const next = new URLSearchParams(previous);
+      if (nextPage > 1) next.set("page", String(nextPage));
+      else next.delete("page");
+      return next;
+    });
   }
   function submit(event) {
     event.preventDefault();
-    setSubmitted(draft.trim());
-    setNavigation({ term: draft.trim(), page: 1 });
+    setParams(previous => {
+      const next = new URLSearchParams(previous);
+      if (draft.trim()) next.set("search", draft.trim());
+      else next.delete("search");
+      next.delete("page");
+      return next;
+    });
     setRetry(value => value + 1);
   }
 
@@ -72,10 +86,20 @@ export default function BookCatalog({ query = "", showSearchForm = false }) {
       {loading && <p role="status" className="text-sm text-mist">Carregando livros…</p>}
       {!loading && !error && books.length === 0 && <p className="rounded-2xl border border-dashed border-line p-5 text-mist">{term ? "Nenhum livro encontrado no catálogo. Experimente outro título, autor ou ISBN." : "O catálogo ainda não tem livros. Você pode cadastrar sua primeira leitura."}</p>}
       <div className="grid gap-4 xl:grid-cols-2">{books.map(book => <BookCard key={book._id} book={book} />)}</div>
-      {visible && books.length > 0 && <nav aria-label="Páginas da busca de livros" className="flex items-center justify-center gap-4">
-        <button disabled={loading || page === 1} onClick={() => requestPage(page - 1)} className="rounded-xl border border-line px-4 py-2 text-sm disabled:opacity-40">← Anterior</button>
-        <span className="text-sm text-mist">Página {page}</span>
-        <button disabled={loading || !visible.hasMore} onClick={() => requestPage(page + 1)} className="rounded-xl border border-line px-4 py-2 text-sm disabled:opacity-40">Próxima →</button>
+      {visible && books.length > 0 && <nav aria-label="Páginas da busca de livros" className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-line pt-6 sm:gap-6">
+        <div className="flex justify-end">
+          {page > 1 && <button type="button" disabled={loading} onClick={() => requestPage(page - 1)} className="group inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line bg-panel px-3 py-2.5 text-sm font-semibold text-mist transition hover:border-copper/50 hover:bg-panelSoft hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper focus-visible:ring-offset-2 focus-visible:ring-offset-midnight disabled:pointer-events-none disabled:opacity-40 sm:px-5">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 transition-transform motion-safe:group-hover:-translate-x-0.5"><path d="m14 6-6 6 6 6" /></svg>
+            Anterior
+          </button>}
+        </div>
+        <span aria-current="page" className="flex flex-col items-center gap-0.5 px-1 text-xs text-mist sm:px-3">Página<span className="text-base font-semibold tabular-nums text-white">{page}</span></span>
+        <div className="flex justify-start">
+          <button type="button" disabled={loading || !visible.hasMore} onClick={() => requestPage(page + 1)} className="group inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line bg-panel px-3 py-2.5 text-sm font-semibold text-mist transition hover:border-copper/50 hover:bg-panelSoft hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper focus-visible:ring-offset-2 focus-visible:ring-offset-midnight disabled:pointer-events-none disabled:opacity-40 sm:px-5">
+            Próxima
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 transition-transform motion-safe:group-hover:translate-x-0.5"><path d="m10 6 6 6-6 6" /></svg>
+          </button>
+        </div>
       </nav>}
     </section>
   );

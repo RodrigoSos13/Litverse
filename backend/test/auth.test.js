@@ -95,6 +95,40 @@ test("busca local aplica todos os termos antes de consultar e não retorna suges
   assert.deepEqual((await request("/books?search=autor%20inexistente")).data, []);
   assert.deepEqual((await request("/books?search=%25%25")).data, []);
 });
+test("cadastro aceita capa enviada e idioma escolhido, e rejeita imagens inválidas", async () => {
+  const urlCapa = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aQ1sAAAAASUVORK5CYII=";
+  const body = { titulo: "Uploaded cover", autor: "Test author", genero: "Fantasy", descricao: "á".repeat(20000), idioma: "en", isbn: "9780261102217", urlCapa };
+  const created = await request("/books", { method: "POST", body });
+  assert.equal(created.status, 201);
+  assert.equal(created.data.idioma, "en");
+  assert.equal(created.data.urlCapa, urlCapa);
+  assert.equal(created.data.catalogHasCover, true);
+  const stored = await request(`/books/${created.data._id}`);
+  assert.equal(stored.data.livro.urlCapa, urlCapa);
+  const portuguese = await request("/books", { method: "POST", body: { ...body, idioma: "pt", isbn: "9788533613379" } });
+  assert.equal(portuguese.status, 201);
+  assert.equal(portuguese.data.idioma, "pt");
+  for (const invalid of ["data:image/png;base64,aGVsbG8=", "data:image/svg+xml;base64,PHN2Zz4=", `data:image/jpeg;base64,${Buffer.alloc(5 * 1024 * 1024 + 1).toString("base64")}`]) {
+    assert.equal((await request("/books", { method: "POST", body: { ...body, isbn: "9780140328721", urlCapa: invalid } })).status, 400);
+  }
+});
+
+test("cadastro exige ISBN válido e bloqueia duplicatas inclusive em pedidos simultâneos", async () => {
+  const body = { titulo: "ISBN test", autor: "Author", genero: "Test", descricao: "Test" };
+  for (const isbn of [undefined, "", "123", "9780261102218", "abcdefghij"]) {
+    assert.equal((await request("/books", { method: "POST", body: { ...body, isbn } })).status, 400);
+  }
+  const responses = await Promise.all([
+    request("/books", { method: "POST", body: { ...body, isbn: "978-0-14-044913-6" } }),
+    request("/books", { method: "POST", body: { ...body, isbn: "9780140449136" } }),
+  ]);
+  assert.deepEqual(responses.map(response => response.status).sort(), [201, 409]);
+  assert.equal(await Book.countDocuments({ isbnSearch: "9780140449136" }), 1);
+  const existing = await Book.create({ ...body, isbn: "978-0-14-032872-1" });
+  assert.equal((await request("/books", { method: "POST", body: { ...body, isbn: "9780140328721" } })).status, 409);
+  await Book.deleteOne({ _id: existing._id });
+});
+
 test("Google Books exige login e configuração, importa sem duplicar e preserva avaliações locais", async () => {
   assert.equal((await request("/books/google/search?q=test", { session: null })).status, 401);
   assert.equal((await request("/books/google/import", { method: "POST", session: null, body: { googleBooksId: "test_volume" } })).status, 401);
@@ -145,8 +179,8 @@ test("Google Books exige login e configuração, importa sem duplicar e preserva
     const english = await Book.create({ titulo: "English", autor: "Author", genero: "Test", descricao: "Test", idioma: "en", googleBooksId: "english_volume" });
     assert.equal((await request("/books/google/import", { method: "POST", body: { googleBooksId: "english_volume" } })).status, 200);
     assert.equal((await request("/books")).data.some(book => book._id === String(english._id)), true);
-    assert.equal((await request("/books", { method: "POST", body: { titulo: "English manual", autor: "Author", genero: "Test", descricao: "Test", idioma: "en" } })).status, 201);
-    const manual = await request("/books", { method: "POST", body: { titulo: "Manual title", autor: "Manual author", genero: "Test", descricao: "Manual description", totalPaginas: 200, editora: "Publisher", googleBooksId: "forged_volume" } });
+    assert.equal((await request("/books", { method: "POST", body: { titulo: "English manual", autor: "Author", genero: "Test", descricao: "Test", idioma: "en", isbn: "9780747532743" } })).status, 201);
+    const manual = await request("/books", { method: "POST", body: { titulo: "Manual title", autor: "Manual author", genero: "Test", descricao: "Manual description", totalPaginas: 200, editora: "Publisher", isbn: "9780439064873", googleBooksId: "forged_volume" } });
     assert.equal(manual.status, 201);
     assert.equal(manual.data.googleBooksId, undefined);
     assert.equal(manual.data.totalPaginas, 200);

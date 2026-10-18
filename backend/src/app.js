@@ -20,6 +20,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use("/api/posts", express.json({ limit: "8mb" }));
+app.use("/api/books", express.json({ limit: "8mb" }));
 app.use("/api/users", express.json({ limit: "512kb" }));
 app.use(express.json({ limit: "32kb" }));
 

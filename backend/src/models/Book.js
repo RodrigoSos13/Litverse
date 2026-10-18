@@ -92,6 +92,7 @@ bookSchema.index({ searchTokens: 1 });
 bookSchema.index({ titleTokens: 1 });
 bookSchema.index({ authorTokens: 1 });
 bookSchema.index({ isbnSearch: 1 });
+bookSchema.index({ isbnSearch: 1 }, { name: "unique_book_isbn", unique: true, partialFilterExpression: { isbnSearch: { $gt: "" } } });
 bookSchema.index({ catalogLanguageRank: 1, catalogHasCover: -1, _id: 1 });
 bookSchema.index(
   { titulo: "text", autor: "text" },

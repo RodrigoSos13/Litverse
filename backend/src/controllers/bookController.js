@@ -3,17 +3,24 @@ import { Reading } from "../models/Reading.js";
 import { Book } from "../models/Book.js";
 import { isPortuguese, isSupportedLanguage } from "../services/googleBooks.js";
 import { indexedBookSearchFilter, localBookSearchFilter } from "../services/bookSearch.js";
+import { validateUploadedImage } from "../services/uploadedImage.js";
+import { isValidIsbn, normalizeIsbn } from "../services/isbn.js";
 
 export async function createBook(req, res) {
   try {
     const fields = ["titulo", "autor", "genero", "descricao", "urlCapa", "destaque", "totalPaginas", "editora", "anoPublicacao", "idioma", "isbn"];
     const payload = Object.fromEntries(fields.filter(key => req.body[key] !== undefined).map(key => [key, req.body[key]]));
+    if (!isValidIsbn(payload.isbn)) return res.status(400).json({ message: "Informe um ISBN válido de 10 ou 13 dígitos." });
+    payload.isbn = normalizeIsbn(payload.isbn);
+    if (await Book.exists({ isbnSearch: payload.isbn.toLowerCase() })) return res.status(409).json({ message: "Já existe um livro cadastrado com este ISBN." });
+    if (payload.urlCapa) validateUploadedImage(payload.urlCapa);
     if (!payload.idioma) payload.idioma = "pt";
     if (!isSupportedLanguage(payload.idioma)) return res.status(400).json({ message: "O catálogo aceita edições em português ou inglês." });
     payload.idioma = isPortuguese(payload.idioma) ? "pt" : "en";
     const book = await Book.create(payload);
     res.status(201).json(book);
   } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ message: "Já existe um livro cadastrado com este ISBN." });
     res.status(400).json({ message: error.message });
   }
 }

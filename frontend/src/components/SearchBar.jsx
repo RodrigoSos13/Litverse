@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import BookCover from "./BookCover";
 
-export default function SearchBar({ value, onSubmit }) {
+export default function SearchBar({ value = "", onSubmit, className = "relative col-span-2 row-start-2 w-full lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:max-w-xl" }) {
   const navigate = useNavigate();
   const [draft, setDraft] = useState(value);
   const [focused, setFocused] = useState(false);
@@ -31,6 +31,10 @@ export default function SearchBar({ value, onSubmit }) {
   }, [term, focused]);
 
   function confirm(book) {
+    if (!book && !onSubmit) {
+      setFocused(true);
+      return;
+    }
     setFocused(false);
     setActive(-1);
     if (book) {
@@ -55,7 +59,7 @@ export default function SearchBar({ value, onSubmit }) {
   }
 
   return (
-    <form role="search" className="relative col-span-2 row-start-2 w-full lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:max-w-xl" onSubmit={event => { event.preventDefault(); confirm(); }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) { setFocused(false); setActive(-1); } }}>
+    <form role="search" className={className} onSubmit={event => { event.preventDefault(); confirm(); }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) { setFocused(false); setActive(-1); } }}>
       <label htmlFor={`${listId}-input`} className="sr-only">Pesquisar livros</label>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" className="pointer-events-none absolute left-4 top-3 h-5 w-5 text-mist"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4 4" /></svg>
       <input id={`${listId}-input`} type="search" role="combobox" aria-autocomplete="list" aria-expanded={expanded} aria-controls={listId} aria-activedescendant={expanded && active >= 0 && books[active] ? `${listId}-${active}` : undefined} autoComplete="off" maxLength={200} value={draft} onChange={event => { setDraft(event.target.value); setFocused(true); setActive(-1); }} onFocus={() => setFocused(true)} onKeyDown={handleKeyDown} placeholder="Pesquisar por título, autor ou ISBN" className="h-11 w-full rounded-lg border border-line/70 bg-panel/80 pl-12 pr-4 text-sm text-white outline-none transition placeholder:text-mist/70 hover:border-mist/40 focus:border-copper focus:ring-2 focus:ring-copper/15" />

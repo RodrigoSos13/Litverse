@@ -51,13 +51,32 @@ function UserProfilePage() {
           </div>
           {id === currentUserId && <button type="button" onClick={() => setEditing(true)} aria-label="Editar meu perfil" title="Editar perfil" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line text-mist transition hover:border-copper/50 hover:bg-panelSoft hover:text-copper"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5M4 20l5-1L21 7a2.1 2.1 0 0 0-5-5L4 14l-1 7 6-2" /></svg></button>}
         </div>
-        <div className="mt-8 flex items-center justify-between"><h2 className="text-sm font-semibold text-white">Biblioteca</h2><span className="text-xs text-mist">Explore as leituras →</span></div>
-        <div className="mt-3 grid grid-cols-3 divide-x divide-line">
-          {readingTabs.map(tab => <Link key={tab.key} to={`/users/${id}/library?status=${tab.key}`} className="group py-4 text-center transition hover:bg-white/[0.03]">
-            <span className="block text-3xl font-semibold tabular-nums text-white transition group-hover:text-copper">{leituras[tab.key]?.length || 0}</span>
-            <span className="mt-1 block text-sm text-mist group-hover:text-ink">{tab.label}</span>
-          </Link>)}
-        </div>
+        <section aria-labelledby="profile-library-title" className="mt-8">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 id="profile-library-title" className="font-display text-xl text-white">Biblioteca</h2>
+            <span className="text-xs tabular-nums text-mist">{readingTabs.reduce((total, tab) => total + (leituras[tab.key]?.length || 0), 0).toLocaleString("pt-BR")} livros nas listas</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {readingTabs.map(tab => {
+              const count = leituras[tab.key]?.length || 0;
+              const captions = { lendo: "Em andamento", quero_ler: "Próximas leituras", lido: "Leituras concluídas" };
+              return <Link key={tab.key} to={`/users/${id}/library?status=${tab.key}`} aria-label={`Ver ${tab.label.toLowerCase()}: ${count} ${count === 1 ? "livro" : "livros"}`} className="group flex items-center gap-3 rounded-xl border border-line bg-panel p-3 transition duration-200 hover:border-copper/50 hover:bg-panelSoft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper focus-visible:ring-offset-2 focus-visible:ring-offset-midnight sm:p-4">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line bg-midnight/40 text-copper transition group-hover:border-copper/30 group-hover:bg-copper/10">
+                  <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    {tab.key === "lendo" ? <path d="M12 5v15M12 5C9 3 5 3 3 4v15c3-1 6-1 9 1 3-2 6-2 9-1V4c-2-1-6-1-9 1Z" /> : tab.key === "quero_ler" ? <path d="M6 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17l-6-4-6 4V4Z" /> : <><path d="M20 11v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8M4 17h14" /><path d="m14 6 3 3 5-6" /></>}
+                  </svg>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm font-semibold text-white">{tab.label}</span>
+                    <span className="text-xl font-semibold leading-none tabular-nums text-white">{count.toLocaleString("pt-BR")}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-mist">{captions[tab.key]}</p>
+                </div>
+              </Link>;
+            })}
+          </div>
+        </section>
       </section>
 
       <section className="mx-auto w-full max-w-[560px]">

@@ -98,6 +98,37 @@ test("feed e perfil mantêm curtida e comentários após recarregar", async () =
   assert.equal(unliked.curtido, false);
   assert.equal(unliked.totalCurtidas, 0);
 });
+test("somente o autor apaga publicações, removendo comentários e curtidas", async () => {
+  const { Post } = await import("../src/models/Post.js");
+  const { Comment } = await import("../src/models/Comment.js");
+  const { Like } = await import("../src/models/Like.js");
+  const foreign = await Post.create({ usuario: otherUser._id, tipo: "opiniao", texto: "Outro autor" });
+  assert.equal((await request(`/posts/${foreign._id}`, { method: "DELETE", body: { usuario: otherUser._id } })).status, 403);
+  assert.ok(await Post.findById(foreign._id));
+  const own = await request("/posts", { method: "POST", body: { tipo: "opiniao", texto: "Apagar" } });
+  const id = own.data._id;
+  await request("/comments", { method: "POST", body: { publicacao: id, texto: "Comentário" } });
+  await request("/likes", { method: "POST", body: { publicacao: id } });
+  assert.equal((await request(`/posts/${id}`, { method: "DELETE", session: null })).status, 401);
+  assert.equal((await request(`/posts/${id}`, { method: "DELETE" })).status, 200);
+  assert.equal(await Post.findById(id), null);
+  assert.equal(await Comment.countDocuments({ publicacao: id }), 0);
+  assert.equal(await Like.countDocuments({ publicacao: id }), 0);
+  assert.equal((await request(`/posts/${id}`, { method: "DELETE" })).status, 404);
+  assert.equal((await request("/posts/invalido", { method: "DELETE" })).status, 400);
+});
+test("fixação pertence ao autor e coloca posts no topo do perfil", async () => {
+  const { Post } = await import("../src/models/Post.js");
+  const foreign = await Post.findOne({ usuario: otherUser._id });
+  assert.equal((await request(`/posts/${foreign._id}/pin`, { method: "PATCH", body: { fixadoNoPerfil: true } })).status, 403);
+  assert.equal((await request(`/posts/${post._id}/pin`, { method: "PATCH", body: { fixadoNoPerfil: "true" } })).status, 400);
+  await request("/posts", { method: "POST", body: { tipo: "opiniao", texto: "Mais recente" } });
+  assert.equal((await request(`/posts/${post._id}/pin`, { method: "PATCH", body: { fixadoNoPerfil: true } })).status, 200);
+  const profile = await request(`/users/${post.usuario._id}/profile`);
+  assert.equal(profile.data.posts[0]._id, post._id);
+  assert.equal(profile.data.posts[0].fixadoNoPerfil, true);
+  assert.equal((await request(`/posts/${post._id}/pin`, { method: "PATCH", body: { fixadoNoPerfil: false } })).data.fixadoNoPerfil, false);
+});
 test("busca local aplica todos os termos antes de consultar e não retorna sugestões iniciais", async () => {
   const matching = await Book.create({ titulo: "O Caminho dos Reis", autor: "Brandon Sanderson", genero: "Fantasia", descricao: "Livro de teste", idioma: "pt" });
   await Book.create({ titulo: "Dom Casmurro", autor: "Machado de Assis", genero: "Romance", descricao: "Livro de teste", idioma: "pt" });
@@ -216,15 +247,15 @@ test("catálogo pagina e prioriza português e capas inteiramente no banco", asy
     const first = await request("/books/catalog?search=Catalog%20Author&page=1");
     const second = await request("/books/catalog?search=Catalog%20Author&page=2");
     assert.equal(first.status, 200);
-    assert.equal(first.data.livros.length, 14);
+    assert.equal(first.data.livros.length, 16);
     assert.equal(first.data.hasMore, true);
     assert.ok(first.data.livros.every(book => book.idioma === "pt"));
     assert.ok(first.data.livros.slice(0, 5).every(book => book.urlCapa));
     assert.equal(first.data.livros[0].searchTokens, undefined);
-    assert.equal(second.data.livros.length, 6);
+    assert.equal(second.data.livros.length, 4);
     assert.equal(second.data.hasMore, false);
     assert.equal(new Set([...first.data.livros, ...second.data.livros].map(book => book._id)).size, 20);
-    assert.equal((await request("/books/catalog?search=inauthor:Cat&page=1")).data.livros.length, 14);
+    assert.equal((await request("/books/catalog?search=inauthor:Cat&page=1")).data.livros.length, 16);
     assert.deepEqual((await request("/books/catalog?search=naoexiste")).data.livros, []);
     assert.equal((await request("/books/catalog?page=-1")).status, 400);
     assert.equal((await request("/books/catalog?page=1.5")).status, 400);

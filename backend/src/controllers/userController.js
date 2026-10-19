@@ -25,7 +25,7 @@ export async function getUserProfile(req, res) {
       Post.find({ usuario: user._id })
         .populate("usuario", "nome usuario urlAvatar")
         .populate("livro", "titulo autor urlCapa")
-        .sort({ createdAt: -1 }),
+        .sort({ fixadoNoPerfil: -1, createdAt: -1 }),
     ]);
 
     const likes = await Like.find({ usuario: req.user._id, publicacao: { $in: posts.map(post => post._id) } }).select("publicacao").lean();

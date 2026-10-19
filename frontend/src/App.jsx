@@ -4,7 +4,6 @@ import HomePage from "./pages/HomePage";
 import UserLibraryPage from "./pages/UserLibraryPage";
 import UserProfilePage from "./pages/UserProfilePage";
 import BookPage from "./pages/BookPage";
-import CreatePostPage from "./pages/CreatePostPage";
 import CreateBookPage from "./pages/CreateBookPage";
 
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -27,7 +26,7 @@ function App() {
         <Route path="/users/:id/library" element={<UserLibraryPage />} />
         <Route path="/books/:id" element={<BookPage />} />
         <Route path="/create-book" element={<CreateBookPage />} />
-        <Route path="/create-post" element={<CreatePostPage />} />
+        <Route path="/create-post" element={<Navigate to="/?tab=comunidade&compose=1" replace />} />
       </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

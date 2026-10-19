@@ -71,3 +71,33 @@ export async function getPostById(req, res) {
     res.status(500).json({ message: error.message });
   }
 }
+
+export async function deletePost(req, res) {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Publicação não encontrada." });
+    if (String(post.usuario) !== String(req.user._id)) return res.status(403).json({ message: "Você só pode apagar suas próprias publicações." });
+    await Post.deleteOne({ _id: post._id, usuario: req.user._id });
+    await Promise.all([
+      Comment.deleteMany({ publicacao: post._id }),
+      Like.deleteMany({ publicacao: post._id }),
+    ]);
+    return res.json({ message: "Publicação apagada." });
+  } catch (error) {
+    return res.status(error.name === "CastError" ? 400 : 500).json({ message: "Não foi possível apagar a publicação." });
+  }
+}
+
+export async function pinPost(req, res) {
+  try {
+    if (typeof req.body.fixadoNoPerfil !== "boolean") return res.status(400).json({ message: "Opção de fixação inválida." });
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Publicação não encontrada." });
+    if (String(post.usuario) !== String(req.user._id)) return res.status(403).json({ message: "Você só pode fixar suas próprias publicações." });
+    post.fixadoNoPerfil = req.body.fixadoNoPerfil;
+    await post.save();
+    return res.json({ fixadoNoPerfil: post.fixadoNoPerfil });
+  } catch (error) {
+    return res.status(error.name === "CastError" ? 400 : 500).json({ message: "Não foi possível atualizar a fixação." });
+  }
+}

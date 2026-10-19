@@ -88,7 +88,8 @@ function UserProfilePage() {
               key={post._id}
               post={post}
               currentUserId={currentUserId}
-              onRefresh={loadProfile}
+              onDeleted={loadProfile}
+              onPinned={loadProfile}
             />
           ))}
         </div>

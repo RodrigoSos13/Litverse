@@ -36,7 +36,7 @@ app.use("/api", (req, res, next) => {
     if (req.method === "DELETE" && req.path.startsWith("/likes/") && req.path.split("/")[3] !== String(req.user._id)) return res.status(403).json({ message: "Você só pode remover suas próprias curtidas." });
     const resource = req.path.split("/")[1];
     const allowedFields = {
-      posts: ["livro", "tipo", "texto", "urlImagem", "imagens"],
+      posts: ["livro", "tipo", "texto", "urlImagem", "imagens", ...(req.method === "PATCH" ? ["fixadoNoPerfil"] : [])],
       comments: ["publicacao", "texto"],
       likes: ["publicacao"],
       readings: ["livro", "status", "nota"],

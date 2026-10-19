@@ -55,7 +55,7 @@ export async function getCatalog(req, res) {
     }
     const filter = { idioma: { $in: [/^pt(?:-(?:br|pt))?$/i, /^portugu[eê]s$/i, /^portuguese$/i, /^en(?:-[a-z]{2})?$/i, /^english$/i, /^ingl[eê]s$/i] } };
     if (search.trim()) Object.assign(filter, indexedBookSearchFilter(search));
-    const pageSize = 14;
+    const pageSize = 16;
     const books = await Book.find(filter)
       .select("-searchTokens -titleTokens -authorTokens -isbnSearch -catalogVersion")
       .sort({ catalogLanguageRank: 1, catalogHasCover: -1, _id: 1 })

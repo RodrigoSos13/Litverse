@@ -6,8 +6,8 @@ function Sidebar({ currentUserId }) {
 
   return (
     <aside className="space-y-3">
-      <NavLink className={linkClass} to="/create-post">
-        Criar post
+      <NavLink className={linkClass} to="/?tab=comunidade&compose=1">
+        Adicionar post
       </NavLink>
       {!currentUserId && (
         <p className="rounded-2xl border border-dashed border-line bg-panelSoft/80 px-4 py-3 text-sm text-mist">

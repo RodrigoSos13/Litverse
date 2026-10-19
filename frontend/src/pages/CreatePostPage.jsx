@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import api from "../services/api";
 import SearchBar from "../components/SearchBar";
+import PostText from "../components/PostText";
 import BookCover from "../components/BookCover";
 
 const postTypes = [
@@ -10,7 +11,7 @@ const postTypes = [
   { value: "citacao", label: "Citação", symbol: "“", hint: "Dê um novo lugar àquelas palavras que ficaram com você.", placeholder: "Compartilhe um trecho marcante e lembre de citar a autoria…" },
 ];
 
-export default function CreatePostPage() {
+export default function CreatePostPage({ embedded = false, onPublished, onCancel }) {
   const [tipo, setTipo] = useState("opiniao");
   const [texto, setTexto] = useState("");
   const [livro, setLivro] = useState(null);
@@ -21,6 +22,7 @@ export default function CreatePostPage() {
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
   const input = useRef(null);
+  const textInput = useRef(null);
   const selection = useRef(0);
   const { currentUserId } = useOutletContext();
   const navigate = useNavigate();
@@ -29,6 +31,33 @@ export default function CreatePostPage() {
   useEffect(() => {
     return () => { selection.current++; };
   }, []);
+
+  function formatText(marker) {
+    const field = textInput.current;
+    if (!field || busy) return;
+    const start = field.selectionStart;
+    const end = field.selectionEnd;
+    const selected = texto.slice(start, end);
+    const wrapped = selected.startsWith(marker) && selected.endsWith(marker) && selected.length > marker.length * 2;
+    const surrounded = start >= marker.length && texto.slice(start - marker.length, start) === marker && texto.slice(end, end + marker.length) === marker;
+    let next, selectionStart, selectionEnd;
+    if (surrounded) {
+      next = texto.slice(0, start - marker.length) + selected + texto.slice(end + marker.length);
+      selectionStart = start - marker.length;
+      selectionEnd = end - marker.length;
+    } else if (wrapped) {
+      next = texto.slice(0, start) + selected.slice(marker.length, -marker.length) + texto.slice(end);
+      selectionStart = start;
+      selectionEnd = end - marker.length * 2;
+    } else {
+      next = texto.slice(0, start) + marker + selected + marker + texto.slice(end);
+      selectionStart = start + marker.length;
+      selectionEnd = end + marker.length;
+    }
+    if (next.length > 1000) return;
+    setTexto(next);
+    requestAnimationFrame(() => { field.focus(); field.setSelectionRange(selectionStart, selectionEnd); });
+  }
 
   async function selectImages(files) {
     if (!files?.length || busy || reading) return;
@@ -78,24 +107,26 @@ export default function CreatePostPage() {
     setBusy(true);
     setError("");
     try {
-      await api.post("/posts", { tipo, texto: texto.trim(), livro: livro?._id || null, usuario: currentUserId, imagens: images.map(image => image.data) }, { timeout: 30000 });
-      navigate("/");
+      const { data } = await api.post("/posts", { tipo, texto: texto.trim(), livro: livro?._id || null, usuario: currentUserId, imagens: images.map(image => image.data) }, { timeout: 30000 });
+      if (onPublished) onPublished(data);
+      else navigate("/");
     } catch (failure) {
       setError(failure.response?.data?.message || "Não foi possível publicar. Seu texto e sua imagem foram mantidos para tentar novamente.");
     } finally { setBusy(false); }
   }
 
   return (
-    <section className="mx-auto max-w-3xl pb-6">
-      <header className="mb-7 px-1">
+    <section className={embedded ? "w-full" : "mx-auto max-w-3xl pb-6"}>
+      {!embedded && <header className="mb-7 px-1">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-copper">Entre leitores</p>
         <h1 className="mt-3 font-display text-3xl text-ink sm:text-4xl">Toda leitura rende uma conversa.</h1>
         <p className="mt-3 text-sm leading-relaxed text-mist">Compartilhe o que ficou com você e encontre novas perspectivas.</p>
-      </header>
+      </header>}
 
       <form onSubmit={handleSubmit} aria-busy={busy} className="rounded-3xl border border-line bg-panel shadow-card">
         <fieldset disabled={busy} className="min-w-0 p-5 sm:p-8">
-          <legend className="sr-only">Criar publicação</legend>
+          <legend className="sr-only">Adicionar post</legend>
+          {embedded && <div className="mb-6 flex items-center justify-between gap-3"><h3 className="font-display text-2xl text-ink">Adicionar post</h3><button type="button" onClick={onCancel} className="rounded-lg px-3 py-2 text-sm text-mist hover:text-ink">Fechar</button></div>}
           <fieldset>
             <legend className="mb-3 text-sm font-semibold text-ink">O que você quer compartilhar?</legend>
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -113,11 +144,24 @@ export default function CreatePostPage() {
 
           <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-midnight/30 focus-within:border-copper/60 focus-within:ring-2 focus-within:ring-copper/10">
             <label htmlFor="texto" className="sr-only">Texto da publicação</label>
-            <textarea id="texto" value={texto} onChange={event => setTexto(event.target.value)} required maxLength={1000} rows={7} placeholder={selectedType.placeholder} className="block w-full resize-y border-0 bg-transparent p-5 text-base leading-7 text-ink outline-none placeholder:text-mist/60 sm:p-6" />
-            <div className="flex items-center justify-between gap-3 px-5 pb-4 text-xs text-mist/70">
-              <span>Seu espaço para falar de livros.</span><span className="shrink-0 tabular-nums">{texto.length}/1000</span>
+            <textarea ref={textInput} onKeyDown={event => {
+              if ((event.ctrlKey || event.metaKey) && ["b", "i"].includes(event.key.toLowerCase())) {
+                event.preventDefault(); formatText(event.key.toLowerCase() === "b" ? "**" : "*");
+              }
+            }} id="texto" value={texto} onChange={event => setTexto(event.target.value)} required maxLength={1000} rows={7} placeholder={selectedType.placeholder} className="block w-full resize-y border-0 bg-transparent p-5 text-base leading-7 text-ink outline-none placeholder:text-mist/60 sm:p-6" />
+            <div className="flex items-center justify-between gap-3 border-t border-line/60 px-4 py-2 text-xs text-mist/70">
+            <div role="toolbar" aria-label="Formatação do texto" className="flex items-center gap-1 ">
+              <button type="button" title="Negrito (Ctrl+B)" aria-label="Negrito" onMouseDown={event => event.preventDefault()} onClick={() => formatText("**")} className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-mist hover:bg-panelSoft hover:text-ink">B</button>
+              <button type="button" title="Itálico (Ctrl+I)" aria-label="Itálico" onMouseDown={event => event.preventDefault()} onClick={() => formatText("*")} className="flex h-8 w-8 items-center justify-center rounded-lg font-display text-base italic text-mist hover:bg-panelSoft hover:text-ink">I</button>
+            </div>
+              <span className="shrink-0 tabular-nums">{texto.length}/1000</span>
             </div>
           </div>
+
+          {texto.trim() && /\*[^*]+\*/.test(texto) && <div className="mt-3 rounded-xl bg-midnight/20 px-4 py-3">
+            <p className="mb-2 text-xs font-semibold text-mist/60">Prévia da publicação</p>
+            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-ink"><PostText text={texto} /></p>
+          </div>}
 
           <div className={`mt-3 rounded-xl transition ${dragging ? "bg-copper/10 ring-1 ring-copper" : ""}`} onDragOver={event => { event.preventDefault(); if (!busy) setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); selectImages(event.dataTransfer.files); }}>
             <input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" tabIndex={-1} onChange={event => { selectImages(event.target.files); event.target.value = ""; }} />

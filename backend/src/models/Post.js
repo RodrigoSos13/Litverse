@@ -12,6 +12,7 @@ const postSchema = new mongoose.Schema(
       ref: "Livro",
       default: null,
     },
+    fixadoNoPerfil: { type: Boolean, default: false },
     tipo: {
       type: String,
       enum: ["resenha", "fanart", "citacao", "opiniao"],

@@ -1,3 +1,4 @@
+import api from "../services/api";
 import { useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -6,24 +7,51 @@ export default function LoginPage() {
   const { user, loading, authenticate } = useAuth();
   const location = useLocation();
   const [mode, setMode] = useState("login");
-  const [values, setValues] = useState({ identificador: "", nome: "", usuario: "", email: "", senha: "", confirmacao: "" });
+  const [values, setValues] = useState({ identificador: "", nome: "", usuario: "", email: "", senha: "", confirmacao: "", codigo: "" });
   const [visible, setVisible] = useState(false);
   const [confirmationVisible, setConfirmationVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [resendAt, setResendAt] = useState(0);
+  const verifying = mode === "verify-email";
+  const recovering = mode === "forgot-password";
+  const resetting = mode === "reset-password";
   const registering = mode === "register";
   const destination = location.state?.from;
   if (user) return <Navigate to={destination ? `${destination.pathname}${destination.search || ""}${destination.hash || ""}` : "/"} replace />;
   function change(event) { setValues(current => ({ ...current, [event.target.name]: event.target.value })); setError(""); }
   async function submit(event) {
     event.preventDefault();
-    if (registering && values.senha !== values.confirmacao) { setError("As senhas não coincidem. Confira e tente novamente."); return; }
+    if ((registering || resetting) && values.senha !== values.confirmacao) { setError("As senhas não coincidem. Confira e tente novamente."); return; }
     setBusy(true); setError("");
-    try { await authenticate(mode, values); }
+    try {
+      if (recovering) {
+        const response = await api.post("/auth/forgot-password", { email: values.email });
+        setNotice(response.data.message); setMode("reset-password"); setResendAt(Date.now() + 60000);
+      } else if (resetting) {
+        const response = await api.post("/auth/reset-password", { email: values.email, codigo: values.codigo, senha: values.senha });
+        setNotice(response.data.message); setMode("login"); setValues(current => ({ ...current, senha: "", confirmacao: "", codigo: "" }));
+      } else {
+        const response = await authenticate(mode, values);
+        if (response.registrationToken) setValues(current => ({ ...current, registrationToken: response.registrationToken }));
+        if (registering) { setNotice(response.message); setMode("verify-email"); setResendAt(Date.now() + 60000); }
+      }
+    }
     catch (err) { setError(err.response?.data?.message || "Não foi possível conectar. Verifique sua conexão e tente novamente."); }
     finally { setBusy(false); }
   }
-  function switchMode() { setMode(registering ? "login" : "register"); setError(""); setVisible(false); setConfirmationVisible(false); setValues(current => ({ ...current, senha: "", confirmacao: "" })); }
+  function switchMode(nextMode) { setMode(nextMode); setNotice(""); setError(""); setVisible(false); setConfirmationVisible(false); setValues(current => ({ ...current, senha: "", confirmacao: "" })); }
+  async function resend() {
+    if (Date.now() < resendAt) { setError("Aguarde 60 segundos antes de reenviar."); return; }
+    setBusy(true); setError("");
+    try {
+      const response = await api.post(verifying ? "/auth/register" : "/auth/forgot-password", verifying ? values : { email: values.email });
+      if (response.data.registrationToken) setValues(current => ({ ...current, registrationToken: response.data.registrationToken }));
+      setNotice(response.data.message); setResendAt(Date.now() + 60000);
+    } catch (err) { setError(err.response?.data?.message || "Não foi possível reenviar o código."); }
+    finally { setBusy(false); }
+  }
   const inputClass = "mt-2 w-full rounded-xl border border-line/80 bg-midnight/60 px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-mist/60 hover:border-mist/50 focus:border-copper focus:bg-midnight focus:ring-2 focus:ring-copper/15 disabled:opacity-60";
   function field(name, label, props = {}) {
     return <label className="block text-sm font-medium text-ink" htmlFor={name}>{label}<input id={name} name={name} value={values[name]} onChange={change} className={inputClass} required disabled={busy} {...props} /></label>;
@@ -61,19 +89,24 @@ export default function LoginPage() {
           <section className="auth-card relative w-full max-w-md overflow-hidden rounded-3xl border border-line p-7 sm:p-10" aria-labelledby="auth-title">
             <div className="mb-8 grid grid-cols-2 gap-1 rounded-xl border border-line/60 bg-midnight/60 p-1" role="group" aria-label="Acesso à conta">
               {[{ value: "login", label: "Entrar" }, { value: "register", label: "Criar conta" }].map(option => (
-                <button key={option.value} type="button" disabled={busy} aria-pressed={mode === option.value} onClick={() => { if (mode !== option.value) switchMode(); }} className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition disabled:opacity-60 ${mode === option.value ? "bg-panelSoft text-white shadow-sm ring-1 ring-line" : "text-mist hover:bg-panel/60 hover:text-white"}`}>{option.label}</button>
+                <button key={option.value} type="button" disabled={busy} aria-pressed={mode === option.value} onClick={() => { if (mode !== option.value) switchMode(option.value); }} className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition disabled:opacity-60 ${mode === option.value ? "bg-panelSoft text-white shadow-sm ring-1 ring-line" : "text-mist hover:bg-panel/60 hover:text-white"}`}>{option.label}</button>
               ))}
             </div>
             <div className="mb-5 flex items-center gap-3" aria-hidden="true"><span className="h-px w-7 bg-copper/60" /><span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-copper">Sua comunidade literária</span></div>
-            <h2 id="auth-title" className="font-display text-3xl leading-tight text-white">{registering ? "Escreva um novo capítulo" : "Bom ter você de volta"}</h2>
+            <h2 id="auth-title" className="font-display text-3xl leading-tight text-white">{verifying ? "Confirme seu e-mail" : recovering ? "Recupere sua conta" : resetting ? "Crie uma nova senha" : registering ? "Escreva um novo capítulo" : "Bom ter você de volta"}</h2>
             {registering && <p className="mt-3 text-sm leading-relaxed text-mist">Crie sua conta e comece sua jornada no LitVerse.</p>}
             <form onSubmit={submit} className="mt-8 space-y-5" aria-busy={busy}>
-              {registering ? <>{field("nome", "Seu nome", { autoComplete: "name", maxLength: 100, placeholder: "Como podemos chamar você?" })}{field("usuario", "Nome de usuário", { autoComplete: "username", pattern: "[a-zA-Z0-9_]{3,30}", title: "Use de 3 a 30 letras, números ou sublinhados", placeholder: "seu_usuario" })}{field("email", "E-mail", { type: "email", autoComplete: "email", maxLength: 254, placeholder: "voce@exemplo.com" })}</> : field("identificador", "E-mail ou nome de usuário", { autoComplete: "username", maxLength: 254, placeholder: "voce@exemplo.com", autoFocus: true })}
-              <div><div className="relative">{field("senha", "Senha", { type: visible ? "text" : "password", autoComplete: registering ? "new-password" : "current-password", minLength: registering ? 8 : 1, maxLength: 128, placeholder: registering ? "Crie uma senha segura" : "Digite sua senha", style: { paddingRight: "5.5rem" } })}<button type="button" onClick={() => setVisible(!visible)} className="absolute bottom-3.5 right-4 text-xs font-semibold text-copper hover:text-glow" aria-label={visible ? "Ocultar senha" : "Mostrar senha"} aria-pressed={visible}>{visible ? "Ocultar" : "Mostrar"}</button></div>{registering && <p className="mt-2 text-xs text-mist">Use no mínimo 8 caracteres.</p>}</div>
-              {registering && <div className="relative">{field("confirmacao", "Confirme sua senha", { type: confirmationVisible ? "text" : "password", autoComplete: "new-password", maxLength: 128, placeholder: "Digite a senha novamente", style: { paddingRight: "5.5rem" } })}<button type="button" onClick={() => setConfirmationVisible(current => !current)} className="absolute bottom-3.5 right-4 text-xs font-semibold text-copper hover:text-glow" aria-label={confirmationVisible ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"} aria-controls="confirmacao" aria-pressed={confirmationVisible}>{confirmationVisible ? "Ocultar" : "Mostrar"}</button></div>}
+              {registering ? <>{field("nome", "Seu nome", { autoComplete: "name", maxLength: 100, placeholder: "Como podemos chamar você?" })}{field("usuario", "Nome de usuário", { autoComplete: "username", pattern: "[a-zA-Z0-9_]{3,30}", title: "Use de 3 a 30 letras, números ou sublinhados", placeholder: "seu_usuario" })}{field("email", "E-mail", { type: "email", autoComplete: "email", maxLength: 254, placeholder: "voce@exemplo.com" })}</> : mode === "login" ? field("identificador", "E-mail ou nome de usuário", { autoComplete: "username", maxLength: 254, placeholder: "voce@exemplo.com", autoFocus: true }) : field("email", "E-mail", { type: "email", autoComplete: "email", maxLength: 254, readOnly: verifying || resetting })}
+              {(verifying || resetting) && field("codigo", "Código recebido por e-mail", { inputMode: "numeric", autoComplete: "one-time-code", pattern: "[0-9]{8}", minLength: 8, maxLength: 8 })}
+              {!verifying && !recovering && <div><div className="relative">{field("senha", "Senha", { type: visible ? "text" : "password", autoComplete: (registering || resetting) ? "new-password" : "current-password", minLength: (registering || resetting) ? 8 : 1, maxLength: 128, placeholder: registering ? "Crie uma senha segura" : "Digite sua senha", style: { paddingRight: "5.5rem" } })}<button type="button" onClick={() => setVisible(!visible)} className="absolute bottom-3.5 right-4 text-xs font-semibold text-copper hover:text-glow" aria-label={visible ? "Ocultar senha" : "Mostrar senha"} aria-pressed={visible}>{visible ? "Ocultar" : "Mostrar"}</button></div>{registering && <p className="mt-2 text-xs text-mist">Use no mínimo 8 caracteres.</p>}</div>}
+              {(registering || resetting) && <div className="relative">{field("confirmacao", "Confirme sua senha", { type: confirmationVisible ? "text" : "password", autoComplete: "new-password", maxLength: 128, placeholder: "Digite a senha novamente", style: { paddingRight: "5.5rem" } })}<button type="button" onClick={() => setConfirmationVisible(current => !current)} className="absolute bottom-3.5 right-4 text-xs font-semibold text-copper hover:text-glow" aria-label={confirmationVisible ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"} aria-controls="confirmacao" aria-pressed={confirmationVisible}>{confirmationVisible ? "Ocultar" : "Mostrar"}</button></div>}
+              {notice && <p role="status" className="text-sm text-mist">{notice}</p>}
               {error && <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</p>}
-              <button disabled={busy || loading} type="submit" className="group flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-gradient-to-r from-forest to-berry px-5 py-4 text-sm font-bold text-white shadow-[0_8px_24px_rgba(143,35,51,0.18)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-copper disabled:cursor-wait disabled:opacity-60">{busy ? "Aguarde…" : registering ? "Criar minha conta" : "Entrar"}<svg className="transition-transform group-hover:translate-x-1" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></button>
+              <button disabled={busy || loading} type="submit" className="group flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-gradient-to-r from-forest to-berry px-5 py-4 text-sm font-bold text-white shadow-[0_8px_24px_rgba(143,35,51,0.18)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-copper disabled:cursor-wait disabled:opacity-60">{busy ? "Aguarde…" : verifying ? "Confirmar e-mail" : recovering ? "Enviar código" : resetting ? "Alterar senha" : registering ? "Criar minha conta" : "Entrar"}<svg className="transition-transform group-hover:translate-x-1" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></button>
             </form>
+            {mode === "login" && <button type="button" disabled={busy} onClick={() => switchMode("forgot-password")} className="mt-5 text-sm text-copper">Esqueci minha senha</button>}
+            {(verifying || resetting) && <button type="button" disabled={busy} onClick={resend} className="mt-5 text-sm text-copper">Reenviar código (intervalo de 60 segundos)</button>}
+            {(verifying || resetting || recovering) && <button type="button" disabled={busy} onClick={() => switchMode("login")} className="mt-5 block text-sm text-mist">Voltar para entrar</button>}
           </section>
         </main>
       </div>

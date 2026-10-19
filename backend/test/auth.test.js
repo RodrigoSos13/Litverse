@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -9,9 +10,12 @@ import app from "../src/app.js";
 import { prepareCatalog, saveCatalogVolumes, syncCatalog } from "../src/services/catalogSync.js";
 import { Book } from "../src/models/Book.js";
 import { User } from "../src/models/User.js";
+import { EmailCode, AuthLimit } from "../src/auth/emailCodes.js";
 import { Session } from "../src/auth/session.js";
 import { hashPassword, verifyPassword } from "../src/auth/password.js";
 let mongo, directory, server, base, cookie, otherUser, post;
+const delivered = new Map();
+const realFetch = globalThis.fetch;
 const password = "Test-password-123";
 async function request(path, { method = "GET", body, session = cookie, origin } = {}) {
   const response = await fetch(`${base}${path}`, { method, headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(session ? { Cookie: session } : {}), ...(origin ? { Origin: origin } : {}) }, body: body ? JSON.stringify(body) : undefined });
@@ -19,6 +23,19 @@ async function request(path, { method = "GET", body, session = cookie, origin } 
   return { status: response.status, data: text && JSON.parse(text), cookie: response.headers.get("set-cookie") };
 }
 before(async () => {
+  process.env.EMAIL_ENCRYPTION_KEY = "11".repeat(32);
+  process.env.EMAIL_LOOKUP_KEY = "22".repeat(32);
+  process.env.RESEND_API_KEY = "test-key";
+  process.env.EMAIL_FROM = "LitVerse <test@example.com>";
+  process.env.EMAIL_CODE_SECRET = "test-secret-for-codes-at-least-32-characters";
+  globalThis.fetch = (url, options) => {
+    if (String(url) === "https://api.resend.com/emails") {
+      const message = JSON.parse(options.body);
+      delivered.set(message.to[0], message.text.match(/\d{8}/)[0]);
+      return Promise.resolve(Response.json({ id: "test-message" }));
+    }
+    return realFetch(url, options);
+  };
   directory = await mkdtemp(join(tmpdir(), "litverse-auth-test-"));
   mongo = spawn("mongod", ["--dbpath", directory, "--bind_ip", "127.0.0.1", "--port", "27941", "--nounixsocket"], { stdio: ["ignore", "pipe", "pipe"] });
   await new Promise((resolve, reject) => {
@@ -28,12 +45,13 @@ before(async () => {
     mongo.stdout.on("data", data => { if (data.toString().includes("Waiting for connections")) { clearTimeout(timer); resolve(); } });
   });
   await mongoose.connect("mongodb://127.0.0.1:27941/auth_test");
-  await User.init(); await Session.init(); await Book.init();
+  await EmailCode.init(); await AuthLimit.init(); await User.init(); await Session.init(); await Book.init();
   server = app.listen(0, "127.0.0.1");
   await new Promise(resolve => server.once("listening", resolve));
   base = `http://127.0.0.1:${server.address().port}/api`;
 });
 after(async () => {
+  globalThis.fetch = realFetch;
   if (server) await new Promise(resolve => server.close(resolve));
   await mongoose.disconnect();
   if (mongo && mongo.exitCode === null) { const exited = new Promise(resolve => mongo.once("exit", resolve)); mongo.kill(); await exited; }
@@ -52,15 +70,33 @@ test("APIs bloqueiam visitantes e origens externas", async () => {
 });
 test("cadastro valida dados, cria sessão segura e não expõe senha", async () => {
   assert.equal((await request("/auth/register", { method: "POST", body: { nome: "Test", usuario: "test", email: "test@example.com", senha: "short" } })).status, 400);
-  const response = await request("/auth/register", { method: "POST", body: { nome: "Test", usuario: "test", email: "test@example.com", senha: password } });
+  const pending = await request("/auth/register", { method: "POST", body: { nome: "Test", usuario: "test", email: "test@example.com", senha: password } });
+  assert.equal(pending.status, 202);
+  assert.equal(pending.cookie, null);
+  assert.equal(await User.countDocuments({ usuario: "test" }), 0);
+  const code = delivered.get("test@example.com");
+  const challenge = await EmailCode.findOne({ purpose: "register" });
+  assert.ok(code); assert.notEqual(challenge.codeHash, code);
+  assert.equal(challenge.payload.email, undefined);
+  assert.ok(challenge.payload.emailEncrypted);
+  assert.equal(JSON.stringify(challenge).includes("test@example.com"), false);
+  assert.equal(JSON.stringify(pending.data).includes(code), false);
+  assert.equal((await request("/auth/verify-email", { method: "POST", body: { email: "test@example.com", codigo: code, registrationToken: "a".repeat(64) } })).status, 400);
+  const response = await request("/auth/verify-email", { method: "POST", body: { email: "test@example.com", codigo: code, registrationToken: pending.data.registrationToken } });
   assert.equal(response.status, 201);
+  assert.equal((await request("/auth/verify-email", { method: "POST", body: { email: "test@example.com", codigo: code, registrationToken: pending.data.registrationToken } })).status, 400);
   assert.equal(response.data.passwordHash, undefined);
   assert.match(response.cookie, /HttpOnly/); assert.match(response.cookie, /SameSite=Lax/);
   cookie = response.cookie.split(";")[0];
   assert.equal((await request("/auth/me")).data.usuario, "test");
-  assert.equal((await request("/auth/register", { method: "POST", body: { nome: "Test", usuario: "test", email: "test@example.com", senha: password } })).status, 409);
+  assert.equal((await request("/auth/register", { method: "POST", body: { nome: "Test", usuario: "test", email: "test@example.com", senha: password } })).status, 202);
   const stored = await User.findOne({ usuario: "test" }).select("+passwordHash");
   assert.notEqual(stored.passwordHash, password);
+  const raw = await User.collection.findOne({ _id: stored._id });
+  assert.equal(raw.email, undefined); assert.ok(raw.emailEncrypted); assert.ok(raw.emailHash);
+  assert.equal(JSON.stringify(response.data).includes("emailEncrypted"), false);
+  assert.equal(JSON.stringify(response.data).includes("emailHash"), false);
+  assert.equal((await User.findById(stored._id)).emailEncrypted, undefined);
   const session = await Session.findOne();
   assert.notEqual(session.token, cookie.split("=")[1]);
 });
@@ -84,7 +120,7 @@ test("visitar perfil e forjar ID não permite agir como outro usuário", async (
   const ownEdit = await request(`/users/${post.usuario._id}`, { method: "PUT", body: { nome: "Updated", email: "changed@example.com", passwordHash: "forged", usuario: "other" } });
   assert.equal(ownEdit.status, 200);
   assert.equal(ownEdit.data.usuario, "test");
-  assert.equal(ownEdit.data.email, "test@example.com");
+  assert.equal(ownEdit.data.email, undefined);
 });
 test("feed e perfil mantêm curtida e comentários após recarregar", async () => {
   const findPost = response => response.data.find(item => item._id === post._id);
@@ -340,6 +376,84 @@ test("logout revoga token; login valida senha e renova sessão", async () => {
   cookie = refreshed.cookie.split(";")[0];
   await Session.updateMany({}, { expiresAt: new Date(0) });
   assert.equal((await request("/auth/me")).status, 401);
+});
+
+test("recuperação não enumera contas, valida códigos e revoga todas as sessões", async () => {
+  const existing = await request("/auth/forgot-password", { method: "POST", body: { email: "test@example.com" } });
+  const missing = await request("/auth/forgot-password", { method: "POST", body: { email: "missing@example.com" } });
+  assert.equal(existing.status, 202); assert.deepEqual(existing.data, missing.data);
+  assert.equal(delivered.has("missing@example.com"), false);
+  const code = delivered.get("test@example.com");
+  const reset = codigo => request("/auth/reset-password", { method: "POST", body: { email: "test@example.com", codigo, senha: "New-password-123" } });
+  assert.equal((await reset("abcdefgh")).status, 400);
+  assert.equal((await reset(code === "00000000" ? "11111111" : "00000000")).status, 400);
+  const logged = await request("/auth/login", { method: "POST", body: { identificador: "test", senha: password } });
+  const active = logged.cookie.split(";")[0];
+  const results = await Promise.all([reset(code), reset(code)]);
+  assert.deepEqual(results.map(result => result.status).sort(), [200, 400]);
+  assert.equal((await request("/auth/me", { session: active })).status, 401);
+  assert.equal((await request("/auth/login", { method: "POST", body: { identificador: "test", senha: password } })).status, 401);
+  assert.equal((await request("/auth/login", { method: "POST", body: { identificador: "test", senha: "New-password-123" } })).status, 200);
+});
+
+test("códigos expiram, têm cinco tentativas e reenvio não burla o limite", async () => {
+  const { issueCode, consumeCode } = await import("../src/auth/emailCodes.js");
+  const email = "limits@example.com";
+  const token = "b".repeat(64);
+  await issueCode(email, "register", { nome: "Test", registrationTokenHash: createHash("sha256").update(token).digest("hex") });
+  const code = delivered.get(email);
+  await issueCode(email, "register", { nome: "Other" });
+  assert.equal(delivered.get(email), code);
+  for (let i = 0; i < 5; i++) assert.equal(await consumeCode(email, "register", "invalid", token), null);
+  assert.equal(await consumeCode(email, "register", code, token), null);
+  assert.equal((await EmailCode.findOne({ "payload.nome": "Test" })).attempts, 5);
+  await EmailCode.updateMany({ purpose: "register" }, { sentAt: new Date(0) });
+  await issueCode(email, "register", { registrationTokenHash: createHash("sha256").update(token).digest("hex") });
+  await EmailCode.updateMany({ purpose: "register" }, { expiresAt: new Date(0) });
+  assert.equal(await consumeCode(email, "register", delivered.get(email), token), null);
+});
+
+test("falha de envio não confirma conta e remove código não entregue", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (url, options) => String(url) === "https://api.resend.com/emails" ? Promise.resolve(Response.json({}, { status: 500 })) : original(url, options);
+  try {
+    const response = await request("/auth/register", { method: "POST", body: { nome: "Fail", usuario: "fail", email: "fail@example.com", senha: password } });
+    assert.equal(response.status, 503);
+    assert.equal(await User.countDocuments({ usuario: "fail" }), 0);
+    assert.equal(await EmailCode.countDocuments({ "payload.usuario": "fail" }), 0);
+  } finally { globalThis.fetch = original; }
+});
+
+test("migração protege contas antigas e cadastros pendentes sem alterar IDs ou senhas", async () => {
+  const { prepareEmailStorage } = await import("../src/auth/migrateEmails.js");
+  const { emailHash, decryptEmail } = await import("../src/auth/emailPrivacy.js");
+  // Simulate the old unique index and multiple plaintext accounts.
+  // Existing new users need distinct placeholder legacy emails only for this fixture.
+  for await (const user of User.collection.find({})) {
+    const email = decryptEmail(user.emailEncrypted);
+    await User.collection.updateOne({ _id: user._id }, { $set: { email } });
+  }
+  await User.collection.createIndex({ email: 1 }, { unique: true });
+  const legacyHash = await hashPassword(password);
+  const first = await User.collection.insertOne({ nome: "Legacy", usuario: "legacy", email: "legacy@example.com", passwordHash: legacyHash });
+  const second = await User.collection.insertOne({ nome: "Legacy2", usuario: "legacy2", email: "legacy2@example.com", passwordHash: legacyHash });
+  const pending = await EmailCode.collection.insertOne({ key: "legacy-test", purpose: "register", payload: { email: "pending@example.com", nome: "Pending", passwordHash: legacyHash } });
+  await prepareEmailStorage();
+  for (const id of [first.insertedId, second.insertedId]) {
+    const raw = await User.collection.findOne({ _id: id });
+    assert.equal(raw.email, undefined); assert.equal(raw.passwordHash, legacyHash);
+    assert.equal(raw.emailHash, emailHash(decryptEmail(raw.emailEncrypted)));
+  }
+  const code = await EmailCode.collection.findOne({ _id: pending.insertedId });
+  assert.equal(code.payload.email, undefined);
+  assert.equal(decryptEmail(code.payload.emailEncrypted), "pending@example.com");
+  assert.deepEqual(await prepareEmailStorage(), { users: 0, pending: 0 });
+  const logged = await request("/auth/login", { method: "POST", body: { identificador: "LEGACY@EXAMPLE.COM", senha: password } });
+  assert.equal(logged.status, 200);
+  await assert.rejects(User.create({ nome: "Duplicate", usuario: "duplicate", email: "LEGACY@example.com" }), error => error.code === 11000);
+  const previous = process.env.EMAIL_LOOKUP_KEY;
+  try { process.env.EMAIL_LOOKUP_KEY = "33".repeat(32); await assert.rejects(prepareEmailStorage()); }
+  finally { process.env.EMAIL_LOOKUP_KEY = previous; }
 });
 
 test("limite de tentativas bloqueia abuso da autenticação", async () => {

@@ -21,7 +21,8 @@ export function AuthProvider({ children }) {
   }, []);
   async function authenticate(mode, values) {
     const response = await api.post(`/auth/${mode}`, values);
-    setUser(response.data);
+    if (mode === "login" || mode === "verify-email") setUser(response.data);
+    return response.data;
   }
   async function updateProfile(values) {
     const response = await api.put(`/users/${user._id}`, values);

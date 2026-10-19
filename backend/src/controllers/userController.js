@@ -1,3 +1,4 @@
+import { publicUser } from "../auth/session.js";
 import { Like } from "../models/Like.js";
 import { Post } from "../models/Post.js";
 import { Reading } from "../models/Reading.js";
@@ -58,7 +59,7 @@ export async function updateUser(req, res) {
       return res.status(404).json({ message: "Usuario nao encontrado" });
     }
 
-    res.json(user);
+    res.json(publicUser(user));
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

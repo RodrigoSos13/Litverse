@@ -23,6 +23,11 @@ services:
       # Configuração para testar localmente via HTTP.
       NODE_ENV: development
       TRUST_PROXY: "1"
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      EMAIL_ENCRYPTION_KEY: ${EMAIL_ENCRYPTION_KEY:-}
+      EMAIL_LOOKUP_KEY: ${EMAIL_LOOKUP_KEY:-}
+      EMAIL_CODE_SECRET: ${EMAIL_CODE_SECRET:-}
       SEED_PASSWORD: ${SEED_PASSWORD:-}
       GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
       PORT: 5000

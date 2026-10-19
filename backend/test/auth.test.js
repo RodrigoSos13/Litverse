@@ -86,6 +86,18 @@ test("visitar perfil e forjar ID não permite agir como outro usuário", async (
   assert.equal(ownEdit.data.usuario, "test");
   assert.equal(ownEdit.data.email, "test@example.com");
 });
+test("feed e perfil mantêm curtida e comentários após recarregar", async () => {
+  const findPost = response => response.data.find(item => item._id === post._id);
+  assert.equal(findPost(await request("/posts")).curtido, true);
+  const profile = await request(`/users/${post.usuario._id}/profile`);
+  assert.equal(profile.data.posts.find(item => item._id === post._id).curtido, true);
+  const comments = await request(`/comments?post=${post._id}`);
+  assert.ok(comments.data.some(comment => comment.texto === "Comment" && comment.usuario.usuario === "test"));
+  assert.equal((await request(`/likes/${post._id}/${post.usuario._id}`, { method: "DELETE" })).status, 200);
+  const unliked = findPost(await request("/posts"));
+  assert.equal(unliked.curtido, false);
+  assert.equal(unliked.totalCurtidas, 0);
+});
 test("busca local aplica todos os termos antes de consultar e não retorna sugestões iniciais", async () => {
   const matching = await Book.create({ titulo: "O Caminho dos Reis", autor: "Brandon Sanderson", genero: "Fantasia", descricao: "Livro de teste", idioma: "pt" });
   await Book.create({ titulo: "Dom Casmurro", autor: "Machado de Assis", genero: "Romance", descricao: "Livro de teste", idioma: "pt" });

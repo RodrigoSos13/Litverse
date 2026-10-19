@@ -1,3 +1,4 @@
+import { Like } from "../models/Like.js";
 import { Comment } from "../models/Comment.js";
 import { Post } from "../models/Post.js";
 import { validateUploadedImage } from "../services/uploadedImage.js";
@@ -43,7 +44,9 @@ export async function getPosts(req, res) {
       .populate("livro", "titulo autor urlCapa")
       .sort({ createdAt: -1 });
 
-    res.json(posts);
+    const likes = await Like.find({ usuario: req.user._id, publicacao: { $in: posts.map(post => post._id) } }).select("publicacao").lean();
+    const liked = new Set(likes.map(like => String(like.publicacao)));
+    res.json(posts.map(post => ({ ...post.toObject(), curtido: liked.has(String(post._id)) })));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

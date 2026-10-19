@@ -1,3 +1,4 @@
+import { Like } from "../models/Like.js";
 import { Post } from "../models/Post.js";
 import { Reading } from "../models/Reading.js";
 import { User } from "../models/User.js";
@@ -22,9 +23,13 @@ export async function getUserProfile(req, res) {
     const [readings, posts] = await Promise.all([
       Reading.find({ usuario: user._id }).populate("livro").sort({ updatedAt: -1 }),
       Post.find({ usuario: user._id })
+        .populate("usuario", "nome usuario urlAvatar")
         .populate("livro", "titulo autor urlCapa")
         .sort({ createdAt: -1 }),
     ]);
+
+    const likes = await Like.find({ usuario: req.user._id, publicacao: { $in: posts.map(post => post._id) } }).select("publicacao").lean();
+    const liked = new Set(likes.map(like => String(like.publicacao)));
 
     const groupedReadings = {
       quero_ler: readings.filter((item) => item.status === "quero_ler"),
@@ -35,7 +40,7 @@ export async function getUserProfile(req, res) {
     res.json({
       usuario: user,
       leituras: groupedReadings,
-      posts,
+      posts: posts.map(post => ({ ...post.toObject(), curtido: liked.has(String(post._id)) })),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

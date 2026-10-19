@@ -22,6 +22,11 @@ const postSchema = new mongoose.Schema(
       required: true,
       maxlength: 1000,
     },
+    imagens: {
+      type: [String],
+      default: [],
+      validate: { validator: value => value.length <= 4, message: "Envie até 4 fotos." },
+    },
     urlImagem: {
       type: String,
       default: "",

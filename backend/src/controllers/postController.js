@@ -4,8 +4,15 @@ import { validateUploadedImage } from "../services/uploadedImage.js";
 
 export async function createPost(req, res) {
   try {
+    const images = req.body.imagens ?? [];
+    if (!Array.isArray(images) || images.length > 4) throw new Error("Envie até 4 fotos.");
+    for (const image of images) {
+      if (typeof image !== "string" || !image.startsWith("data:")) throw new Error("Envie um arquivo de imagem válido.");
+      validateUploadedImage(image);
+    }
+    if (images.reduce((total, image) => total + Buffer.from(image.split(",")[1], "base64").length, 0) > 10 * 1024 * 1024) throw new Error("As fotos juntas devem ter até 10 MB.");
     if (req.body.urlImagem) validateUploadedImage(req.body.urlImagem);
-    if (req.body.tipo === "fanart" && !req.body.urlImagem) {
+    if (req.body.tipo === "fanart" && !req.body.urlImagem && !images.length) {
       return res.status(400).json({ message: "Envie uma imagem para publicar sua fanart." });
     }
     const post = await Post.create(req.body);

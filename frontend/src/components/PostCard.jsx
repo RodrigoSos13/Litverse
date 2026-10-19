@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import api from "../services/api";
 
 function PostCard({ post, currentUserId, onRefresh }) {
+  const images = post.imagens?.length ? post.imagens : post.urlImagem ? [post.urlImagem] : [];
   const [commentText, setCommentText] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -72,14 +73,11 @@ function PostCard({ post, currentUserId, onRefresh }) {
 
       <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-300">{post.texto}</p>
 
-      {post.urlImagem && (
-        <div className="-mx-4 mt-4 flex items-center justify-center border-y border-line/60 bg-midnight sm:-mx-5">
-          <img
-            src={post.urlImagem}
-            alt={post.texto || post.tipo}
-            loading="lazy"
-            className="block h-auto max-h-[640px] w-full object-contain"
-          />
+      {images.length > 0 && (
+        <div className={`mt-4 grid gap-1 overflow-hidden rounded-xl border border-line/60 bg-midnight ${images.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {images.map((src, index) => <a key={index} href={src} target="_blank" rel="noreferrer" aria-label={`Abrir foto ${index + 1}`} className={images.length === 3 && index === 0 ? "row-span-2" : ""}>
+            <img src={src} alt={`Imagem ${index + 1} da publicação`} loading="lazy" className={images.length === 1 ? "block max-h-[640px] w-full object-contain" : "h-full min-h-0 w-full object-cover max-h-80"} />
+          </a>)}
         </div>
       )}
 

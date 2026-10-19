@@ -19,7 +19,7 @@ app.use((req, res, next) => {
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && req.headers.origin && req.headers.origin !== frontendOrigin) return res.status(403).json({ message: "Origem não autorizada." });
   next();
 });
-app.use("/api/posts", express.json({ limit: "8mb" }));
+app.use("/api/posts", express.json({ limit: "15mb" }));
 app.use("/api/books", express.json({ limit: "8mb" }));
 app.use("/api/users", express.json({ limit: "512kb" }));
 app.use(express.json({ limit: "32kb" }));
@@ -36,7 +36,7 @@ app.use("/api", (req, res, next) => {
     if (req.method === "DELETE" && req.path.startsWith("/likes/") && req.path.split("/")[3] !== String(req.user._id)) return res.status(403).json({ message: "Você só pode remover suas próprias curtidas." });
     const resource = req.path.split("/")[1];
     const allowedFields = {
-      posts: ["livro", "tipo", "texto", "urlImagem"],
+      posts: ["livro", "tipo", "texto", "urlImagem", "imagens"],
       comments: ["publicacao", "texto"],
       likes: ["publicacao"],
       readings: ["livro", "status", "nota"],

@@ -385,6 +385,22 @@ test("seguidores, seguindo e notificações respeitam a conta autenticada", asyn
   assert.equal(notifications.status, 200);
   for (const tipo of ["follow", "like", "comment"]) assert.ok(notifications.data.items.some(item => item.tipo === tipo && item.ator._id === target));
   assert.ok(notifications.data.items.every(item => item.ator._id !== ownId));
+  const followerNotification = notifications.data.items.find(item => item.tipo === "follow");
+  assert.equal(followerNotification.lida, false);
+  const readUrl = `/notifications/${followerNotification._id}/read`;
+  assert.equal((await request(readUrl, { method: "PATCH" })).status, 200);
+  let refreshed = await request("/notifications");
+  assert.equal(refreshed.data.unread, notifications.data.unread - 1);
+  assert.equal(refreshed.data.items.find(item => item._id === followerNotification._id).lida, true);
+  assert.ok(refreshed.data.items.some(item => item.tipo === "comment" && !item.lida));
+  assert.equal((await request(readUrl, { method: "PATCH" })).status, 200);
+  refreshed = await request("/notifications");
+  assert.equal(refreshed.data.unread, notifications.data.unread - 1);
+  assert.equal((await request("/notifications/invalid/read", { method: "PATCH" })).status, 400);
+  const foreignFollow = await Follow.findOne({ seguidor: ownId, seguido: target });
+  assert.equal((await request(`/notifications/follow-${foreignFollow._id}/read`, { method: "PATCH" })).status, 404);
+  assert.equal((await request(readUrl, { method: "PATCH", session: "" })).status, 401);
+
   assert.equal((await request(`/notifications/read?before=${encodeURIComponent(notifications.data.checkedAt)}`, { method: "PATCH" })).status, 200);
   assert.equal((await request("/notifications")).data.unread, 0);
   assert.equal((await request("/notifications", { session: "" })).status, 401);

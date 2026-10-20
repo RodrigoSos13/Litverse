@@ -1,4 +1,4 @@
-import { matchesBookSearch } from "./bookSearch.js";
+import { matchesBookSearch, parseBookSearch } from "./bookSearch.js";
 const API_ROOT = "https://www.googleapis.com/books/v1/volumes";
 const PAGE_SIZE = 15;
 const validId = value => typeof value === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value);
@@ -105,11 +105,12 @@ export function createGoogleBooksClient({ fetchImpl = (...args) => fetch(...args
     async search({ query, startIndex = 0, language = "pt", maxBatches = 3, matchResults = true, pageSize = PAGE_SIZE }) {
       if (typeof query !== "string" || query.trim().length < 2 || query.length > 200 || !Number.isInteger(startIndex) || startIndex < 0 || startIndex > 2001 || language !== "pt") throw new GoogleBooksError("Informe uma busca válida de 2 a 200 caracteres. O catálogo prioriza português e aceita inglês.", 400, "INVALID_SEARCH");
       const term = query.trim();
+      const parsed = parseBookSearch(term);
       const isbn = term.replace(/[\s-]/g, "");
       // Consultas combinando intitle/inauthor com OR retornam zero para autores
       // disponíveis. Use texto livre e valide título/autor nos metadados abaixo.
-      const q = /^(?:\d{9}[\dXx]|\d{13})$/.test(isbn) ? `isbn:${isbn}`
-        : term;
+      const q = parsed.field ? `${parsed.field}:${parsed.field === "isbn" ? parsed.compact : parsed.term.trim()}`
+        : /^(?:\d{9}[\dXx]|\d{13})$/.test(isbn) ? `isbn:${isbn}` : term;
       const books = [];
       const ids = new Set();
       const isbns = new Set();

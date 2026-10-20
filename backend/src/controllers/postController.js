@@ -30,6 +30,8 @@ export async function createPost(req, res) {
 export async function getPosts(req, res) {
   try {
     const filter = {};
+    const query = String(req.query.q || "").trim().slice(0, 100);
+    if (query) filter.texto = { $regex: query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
 
     if (req.query.user) {
       filter.usuario = req.query.user;

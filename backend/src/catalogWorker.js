@@ -4,6 +4,22 @@ import { connectDatabase } from "./config/db.js";
 import { defaultCatalogQueries, syncCatalog } from "./services/catalogSync.js";
 
 const once = process.argv.includes("--once");
+const enabled = (process.env.CATALOG_SYNC_ENABLED || "true").trim().toLowerCase();
+if (!["true", "false"].includes(enabled)) {
+  console.error("CATALOG_SYNC_ENABLED deve ser true ou false.");
+  process.exit(1);
+}
+if (!once && enabled === "false") {
+  console.log("Sincronização automática desativada (CATALOG_SYNC_ENABLED=false). Importação manual continua disponível.");
+  // Remain idle without connecting to MongoDB or Google; Docker must not restart-loop.
+  await new Promise(resolve => {
+    const keepAlive = setInterval(() => {}, 60 * 60 * 1000);
+    const finish = () => { clearInterval(keepAlive); resolve(); };
+    process.once("SIGTERM", finish);
+    process.once("SIGINT", finish);
+  });
+  process.exit(0);
+}
 const args = process.argv.slice(2).filter(value => !value.startsWith("--"));
 const configured = process.env.CATALOG_SYNC_QUERIES?.split("|").map(value => value.trim()).filter(Boolean);
 const queries = args.length ? args : configured?.length ? configured : defaultCatalogQueries;

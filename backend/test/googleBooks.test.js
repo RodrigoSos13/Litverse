@@ -286,3 +286,15 @@ test("falha de um lote posterior preserva livros e permite repetir seu cursor", 
   assert.equal(result.nextIndex, 1);
   assert.equal(result.hasMore, true);
 });
+
+test("normaliza espaços após inauthor e mantém filtro exclusivo por autor", async () => {
+  const client = createGoogleBooksClient({ apiKey: () => "test-key", englishFallback: false, fetchImpl: async url => {
+    assert.equal(url.searchParams.get("q"), "inauthor:Carl Sagan");
+    return Response.json({ totalItems: 2, items: [
+      { id: "cosmos_sagan", volumeInfo: { title: "Cosmos", authors: ["Carl Sagan"], language: "pt" } },
+      { id: "about_sagan", volumeInfo: { title: "Carl Sagan: uma biografia", authors: ["Outro Autor"], language: "pt" } },
+    ] });
+  } });
+  const result = await client.search({ query: "inauthor: Carl Sagan" });
+  assert.deepEqual(result.livros.map(book => book.googleBooksId), ["cosmos_sagan"]);
+});

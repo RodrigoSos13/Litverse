@@ -3,6 +3,7 @@ import { useOutletContext, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import PostCard from "../components/PostCard";
 import CreatePostPage from "./CreatePostPage";
+import CommunityPeople from "../components/CommunityPeople";
 import BookCatalog from "../components/BookCatalog";
 
 function HomePage() {
@@ -13,6 +14,7 @@ function HomePage() {
   const tabs = useRef([]);
   const composerDialog = useRef(null);
   const touch = useRef(null);
+  const [communitySearching, setCommunitySearching] = useState(false);
   const [postsError, setPostsError] = useState(false);
   const [postsLoading, setPostsLoading] = useState(true);
   const [posts, setPosts] = useState([]);
@@ -25,6 +27,7 @@ function HomePage() {
   }, []);
 
   useEffect(() => { if (search) setActiveTab(0); }, [search]);
+  useEffect(() => { if (activeTab !== 1) setCommunitySearching(false); }, [activeTab]);
 
   useEffect(() => {
     if (!composing) {
@@ -101,17 +104,15 @@ function HomePage() {
             </section>
             <section role="tabpanel" id="home-panel-1" aria-labelledby="home-tab-1" aria-hidden={activeTab !== 1} inert={activeTab === 1 ? undefined : ""} tabIndex={activeTab === 1 ? 0 : -1} className={`w-full min-w-0 shrink-0 ${activeTab === 1 ? "" : "max-h-0 overflow-hidden"}`}>
         <div className="w-full min-w-0 pb-24">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <div><h2 className="font-display text-3xl text-white">Comunidade</h2><p className="mt-1 text-sm text-mist">Leituras, ideias e conversas.</p></div>
-          </div>
-          <div className="columns-1 gap-5 lg:columns-2">
+          {activeTab === 1 && <CommunityPeople currentUserId={currentUserId} onSearchChange={setCommunitySearching} />}
+          <div hidden={communitySearching} className="columns-1 gap-5 lg:columns-2">
             {posts.map((post) => (
               <div key={post._id} className="mb-5 break-inside-avoid-column">
                 <PostCard post={post} currentUserId={currentUserId} fullWidth onDeleted={id => setPosts(current => current.filter(post => post._id !== id))} />
               </div>
             ))}
           </div>
-          <div className="space-y-3">
+          <div hidden={communitySearching} className="space-y-3">
             {postsLoading && <p role="status" className="text-sm text-mist">Carregando publicações…</p>}
             {postsError && <div role="alert" className="text-sm text-mist">Não foi possível carregar as publicações. <button type="button" onClick={() => loadPosts()} className="text-copper underline">Tentar novamente</button></div>}
             {!postsLoading && !postsError && posts.length === 0 && <p className="text-sm text-mist">Ainda não há publicações. Compartilhe sua primeira leitura!</p>}

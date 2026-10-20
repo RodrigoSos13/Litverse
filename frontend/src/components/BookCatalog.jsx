@@ -5,20 +5,28 @@ import BookCard from "./BookCard";
 
 export default function BookCatalog({ query = "", showSearchForm = false }) {
   const [params, setParams] = useSearchParams();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [genres, setGenres] = useState([]);
+  const [genresError, setGenresError] = useState(false);
+  const [genresLoading, setGenresLoading] = useState(false);
+  const [genresRetry, setGenresRetry] = useState(0);
+  const genre = params.get("genre") || "";
   const [draft, setDraft] = useState(() => params.get("search") || "");
   const [snapshot, setSnapshot] = useState(null);
   const [status, setStatus] = useState(null);
   const [retry, setRetry] = useState(0);
   const sectionRef = useRef(null);
+  const filterRef = useRef(null);
+  const filterButtonRef = useRef(null);
   const term = (showSearchForm ? params.get("search") || "" : query).trim();
   const searchEnabled = !showSearchForm || Boolean(term);
   const pageParam = Number(params.get("page") || 1);
   const requestedPage = Number.isSafeInteger(pageParam) && pageParam > 0 ? pageParam : 1;
-  const visible = searchEnabled && snapshot?.term === term ? snapshot : null;
+  const visible = searchEnabled && snapshot?.term === term && snapshot?.genre === genre ? snapshot : null;
   const books = visible?.livros || [];
   const page = visible?.page || 1;
-  const loading = searchEnabled && (!status || status.term !== term || status.page !== requestedPage || status.loading);
-  const error = searchEnabled && status?.term === term ? status.error : "";
+  const loading = searchEnabled && (!status || status.term !== term || status.genre !== genre || status.page !== requestedPage || status.loading);
+  const error = searchEnabled && status?.term === term && status?.genre === genre ? status.error : "";
 
   useEffect(() => {
     if (showSearchForm) setDraft(term);
@@ -27,11 +35,11 @@ export default function BookCatalog({ query = "", showSearchForm = false }) {
   useEffect(() => {
     if (!searchEnabled) return;
     const controller = new AbortController();
-    setStatus({ term, page: requestedPage, loading: true, error: "" });
+    setStatus({ term, genre, page: requestedPage, loading: true, error: "" });
     const timer = setTimeout(async () => {
       try {
         const { data } = await api.get("/books/catalog", {
-          params: { ...(term ? { search: term } : {}), page: requestedPage },
+          params: { ...(genre ? { genre } : {}), ...(term ? { search: term } : {}), page: requestedPage },
           signal: controller.signal,
           timeout: 10000,
         });
@@ -40,18 +48,63 @@ export default function BookCatalog({ query = "", showSearchForm = false }) {
         if (requestedPage > 1 && !data.livros.length && visible) {
           setSnapshot({ ...visible, hasMore: false });
         } else {
-          setSnapshot({ ...data, term });
+          setSnapshot({ ...data, term, genre });
           if (visible && visible.page !== data.page) requestAnimationFrame(() => {
             if (!controller.signal.aborted) sectionRef.current?.scrollIntoView({ behavior: "instant", block: "start" });
           });
         }
-        setStatus({ term, page: requestedPage, loading: false, error: "" });
+        setStatus({ term, genre, page: requestedPage, loading: false, error: "" });
       } catch (err) {
-        if (!controller.signal.aborted) setStatus({ term, page: requestedPage, loading: false, error: err.response?.data?.message || "Não foi possível carregar os livros. Tente novamente." });
+        if (!controller.signal.aborted) setStatus({ term, genre, page: requestedPage, loading: false, error: err.response?.data?.message || "Não foi possível carregar os livros. Tente novamente." });
       }
     }, requestedPage === 1 ? 250 : 0);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [term, requestedPage, retry, searchEnabled]);
+  }, [term, genre, requestedPage, retry, searchEnabled]);
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const controller = new AbortController();
+    setGenresLoading(true);
+    setGenresError(false);
+    api.get("/books/genres", { signal: controller.signal }).then(({ data }) => {
+      if (!controller.signal.aborted) setGenres(data);
+    }).catch(() => { if (!controller.signal.aborted) setGenresError(true); })
+      .finally(() => { if (!controller.signal.aborted) setGenresLoading(false); });
+    return () => controller.abort();
+  }, [filtersOpen, genresRetry]);
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    function dismiss(event) {
+      if (!filterRef.current?.contains(event.target)) setFiltersOpen(false);
+    }
+    function escape(event) {
+      if (event.key === "Escape") {
+        setFiltersOpen(false);
+        filterButtonRef.current?.focus();
+      }
+    }
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("focusin", dismiss);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("focusin", dismiss);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [filtersOpen]);
+
+  function selectGenre(value) {
+    setFiltersOpen(false);
+    filterButtonRef.current?.focus();
+    setParams(previous => {
+      const next = new URLSearchParams(previous);
+      if (value) next.set("genre", value);
+      else next.delete("genre");
+      next.delete("page");
+      return next;
+    });
+  }
 
   function requestPage(nextPage) {
     if (loading) return;
@@ -78,8 +131,27 @@ export default function BookCatalog({ query = "", showSearchForm = false }) {
     <section ref={sectionRef} className="space-y-5 scroll-mt-6" aria-label="Catálogo de livros" aria-busy={loading}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h2 className="font-display text-3xl text-white">{term ? "Resultados da busca" : showSearchForm ? "Confira se o livro já existe" : "Explore os livros"}</h2>
-        {searchEnabled && <span className="text-sm text-mist">{books.length} livros</span>}
+        <div className="flex items-center gap-4">
+          {searchEnabled && <span className="text-sm text-mist">{books.length} livros</span>}
+          <div ref={filterRef} className="relative">
+          <button ref={filterButtonRef} type="button" aria-expanded={filtersOpen} aria-controls="catalog-filters" onClick={() => setFiltersOpen(value => !value)} className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:border-white/20 hover:bg-panelSoft hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mist/50 ${filtersOpen || genre ? "border-white/20 bg-panelSoft text-white" : "border-line bg-panel text-mist"}`}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M4 4h16l-6 7v7l-4 2v-9Z" /></svg>
+            Filtros{genre ? " (1)" : ""}
+          </button>
+          {filtersOpen && <div id="catalog-filters" aria-label="Filtrar por gênero" className="absolute right-0 top-full z-30 mt-2 w-64 max-w-[calc(100vw-3rem)] rounded-xl border border-line bg-panel p-2 shadow-card">
+            <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-mist">Gênero</p>
+            <div className="max-h-64 overflow-y-auto overscroll-contain">
+              {["", ...new Set([...(genre ? [genre] : []), ...genres])].map(value => <button key={value} type="button" aria-pressed={genre === value} onClick={() => selectGenre(value)} className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-panelSoft focus-visible:outline-copper ${genre === value ? "bg-copper/10 text-copper" : "text-ink"}`}>
+                <span>{value || "Todos os gêneros"}</span>{genre === value && <span aria-hidden="true">✓</span>}
+              </button>)}
+            </div>
+            {genresLoading && <p role="status" className="px-3 py-2 text-sm text-mist">Carregando gêneros…</p>}
+            {genresError && <p role="alert" className="px-3 py-2 text-sm text-mist">Não foi possível carregar os gêneros. <button type="button" onClick={() => setGenresRetry(value => value + 1)} className="text-copper underline">Tentar novamente</button></p>}
+          </div>}
+          </div>
+        </div>
       </div>
+      {genre && <div className="flex items-center gap-3 text-sm text-mist"><span>Gênero: {genre}</span><button type="button" onClick={() => selectGenre("")} className="text-copper underline">Limpar filtro</button></div>}
       {showSearchForm && <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row">
         <label className="flex-1"><span className="sr-only">Título, autor ou ISBN</span><input value={draft} onChange={event => setDraft(event.target.value)} maxLength={200} required placeholder="Busque por título, autor ou ISBN" className="w-full rounded-2xl border border-line px-4 py-3 outline-none focus:border-copper" /></label>
         <button className="rounded-2xl bg-gradient-to-r from-forest to-berry px-6 py-3 font-semibold text-white">Buscar livros</button>
@@ -87,7 +159,7 @@ export default function BookCatalog({ query = "", showSearchForm = false }) {
       {!searchEnabled && <p className="text-sm text-mist">Pesquise por título, autor ou ISBN antes de cadastrar um novo livro.</p>}
       {error && <div role="alert" className="rounded-2xl border border-line bg-panelSoft p-4 text-sm text-mist"><p>{error}</p><button onClick={() => setRetry(value => value + 1)} className="mt-2 font-semibold text-copper">Tentar novamente</button></div>}
       {loading && <p role="status" className="text-sm text-mist">Carregando livros…</p>}
-      {searchEnabled && !loading && !error && books.length === 0 && <p className="rounded-2xl border border-dashed border-line p-5 text-mist">{term ? "Nenhum livro encontrado no catálogo. Experimente outro título, autor ou ISBN." : "O catálogo ainda não tem livros. Você pode cadastrar sua primeira leitura."}</p>}
+      {searchEnabled && !loading && !error && books.length === 0 && <p className="rounded-2xl border border-dashed border-line p-5 text-mist">{genre ? "Nenhum livro encontrado com esse gênero e busca. Experimente limpar o filtro ou alterar a busca." : term ? "Nenhum livro encontrado no catálogo. Experimente outro título, autor ou ISBN." : "O catálogo ainda não tem livros. Você pode cadastrar sua primeira leitura."}</p>}
       <div className="grid gap-4 xl:grid-cols-2">{books.map(book => <BookCard key={book._id} book={book} />)}</div>
       {visible && books.length > 0 && <nav aria-label="Páginas da busca de livros" className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-line pt-6 sm:gap-6">
         <div className="flex justify-end">

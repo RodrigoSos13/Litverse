@@ -1,16 +1,24 @@
-import { useState } from "react";
-import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import useUserProfile, { readingTabs } from "../hooks/useUserProfile";
 import EditProfileDialog from "../components/EditProfileDialog";
+import ConnectionsDialog from "../components/ConnectionsDialog";
+import FollowButton from "../components/FollowButton";
 import PostCard from "../components/PostCard";
 
 function UserProfilePage() {
   const { id } = useParams();
+  const location = useLocation();
   const { currentUserId } = useOutletContext();
   const { profile, error, refresh: loadProfile } = useUserProfile(id);
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const [connections, setConnections] = useState(null);
+  useEffect(() => { setConnections(null); }, [id]);
+  useEffect(() => {
+    if (profile && location.hash.startsWith("#post-")) document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: "center" });
+  }, [profile, location.hash]);
   const [editing, setEditing] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
@@ -35,6 +43,7 @@ function UserProfilePage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-10 pb-8">
+      {connections && <ConnectionsDialog key={`${id}-${connections}`} userId={id} kind={connections} onClose={() => setConnections(null)} />}
       {editing && id === currentUserId && <EditProfileDialog key={id} user={usuario} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); loadProfile(); }} />}
       <section aria-label="Perfil" className="border-b border-line pb-8 pt-4 sm:pt-8">
         <div className="flex items-start gap-5 sm:gap-8">
@@ -45,10 +54,11 @@ function UserProfilePage() {
             <p className="mt-1 text-sm text-mist">@{usuario.usuario}</p>
             {usuario.biografia && <p className="mt-4 max-w-xl whitespace-pre-line text-sm leading-relaxed text-slate-300">{usuario.biografia}</p>}
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-mist">
-              <span><strong className="font-semibold text-ink">{usuario.totalSeguidores || 0}</strong> seguidores</span>
-              <span><strong className="font-semibold text-ink">{usuario.totalSeguindo || 0}</strong> seguindo</span>
+              <button type="button" onClick={() => setConnections("followers")} className="rounded hover:text-white focus-visible:outline-copper"><strong className="font-semibold text-ink">{usuario.totalSeguidores || 0}</strong> seguidores</button>
+              <button type="button" onClick={() => setConnections("following")} className="rounded hover:text-white focus-visible:outline-copper"><strong className="font-semibold text-ink">{usuario.totalSeguindo || 0}</strong> seguindo</button>
             </div>
           </div>
+          {currentUserId && id !== currentUserId && <FollowButton key={id} user={usuario} onChanged={loadProfile} />}
           {id === currentUserId && <button type="button" onClick={() => setEditing(true)} aria-label="Editar meu perfil" title="Editar perfil" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line text-mist transition hover:border-copper/50 hover:bg-panelSoft hover:text-copper"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5M4 20l5-1L21 7a2.1 2.1 0 0 0-5-5L4 14l-1 7 6-2" /></svg></button>}
         </div>
         <section aria-labelledby="profile-library-title" className="mt-8">
@@ -84,13 +94,12 @@ function UserProfilePage() {
         {posts.length === 0 && <p className="py-10 text-center text-sm text-mist">As próximas histórias compartilhadas aparecerão aqui.</p>}
         <div className="space-y-4">
           {posts.map((post) => (
-            <PostCard
-              key={post._id}
+            <div key={post._id} id={`post-${post._id}`} className="scroll-mt-6"><PostCard
               post={post}
               currentUserId={currentUserId}
               onDeleted={loadProfile}
               onPinned={loadProfile}
-            />
+            /></div>
           ))}
         </div>
       </section>

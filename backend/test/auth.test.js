@@ -9,6 +9,10 @@ import mongoose from "mongoose";
 import app from "../src/app.js";
 import { prepareCatalog, saveCatalogVolumes, syncCatalog } from "../src/services/catalogSync.js";
 import { Book } from "../src/models/Book.js";
+import { Post } from "../src/models/Post.js";
+import { Follow } from "../src/models/Follow.js";
+import { Like } from "../src/models/Like.js";
+import { Comment } from "../src/models/Comment.js";
 import { User } from "../src/models/User.js";
 import { EmailCode, AuthLimit } from "../src/auth/emailCodes.js";
 import { Session } from "../src/auth/session.js";
@@ -361,6 +365,33 @@ test("somente um processo sincroniza o catálogo por vez", async () => {
     const second = await syncCatalog({ queries: ["Autor Trava"], report: () => {} });
     assert.equal(second.busy, true);
   } finally { release(); await first; }
+});
+
+test("seguidores, seguindo e notificações respeitam a conta autenticada", async () => {
+  await Follow.init();
+  const ownId = String(post.usuario._id);
+  const target = String(otherUser._id);
+  assert.equal((await request(`/users/${target}/follow`, { method: "PUT" })).status, 200);
+  assert.equal((await request(`/users/${target}/follow`, { method: "PUT" })).status, 200);
+  const following = await request(`/users/${ownId}/following`);
+  assert.ok(following.data.users.some(user => user._id === target));
+  assert.equal((await request(`/users/${target}/followers`)).data.users.filter(user => user._id === ownId).length, 1);
+  await Follow.create({ seguidor: target, seguido: ownId });
+  const ownPost = await Post.create({ usuario: ownId, tipo: "opiniao", texto: "Notificações" });
+  await Like.create({ usuario: target, publicacao: ownPost._id });
+  await Comment.create({ usuario: target, publicacao: ownPost._id, texto: "Boa leitura!" });
+  await Comment.create({ usuario: ownId, publicacao: ownPost._id, texto: "Obrigado!" });
+  const notifications = await request("/notifications");
+  assert.equal(notifications.status, 200);
+  for (const tipo of ["follow", "like", "comment"]) assert.ok(notifications.data.items.some(item => item.tipo === tipo && item.ator._id === target));
+  assert.ok(notifications.data.items.every(item => item.ator._id !== ownId));
+  assert.equal((await request(`/notifications/read?before=${encodeURIComponent(notifications.data.checkedAt)}`, { method: "PATCH" })).status, 200);
+  assert.equal((await request("/notifications")).data.unread, 0);
+  assert.equal((await request("/notifications", { session: "" })).status, 401);
+  assert.equal((await request("/notifications/read?before=invalid", { method: "PATCH" })).status, 400);
+  assert.equal((await request(`/users/${ownId}/following?page=-1`)).status, 400);
+  await request(`/users/${target}/follow`, { method: "DELETE" });
+  assert.equal((await request(`/users/${ownId}/following`)).data.users.length, 0);
 });
 
 test("logout revoga token; login valida senha e renova sessão", async () => {

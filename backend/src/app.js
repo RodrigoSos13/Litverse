@@ -10,6 +10,7 @@ import likeRoutes from "./routes/likeRoutes.js";
 
 import authRoutes from "./auth/routes.js";
 import { requireAuth } from "./auth/session.js";
+import { getNotifications, readNotifications } from "./controllers/notificationController.js";
 const app = express();
 if (process.env.TRUST_PROXY === "1") app.set("trust proxy", 1);
 const frontendOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
@@ -32,7 +33,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api", requireAuth);
 app.use("/api", (req, res, next) => {
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
-    if (req.path.startsWith("/users") && (req.method !== "PUT" || req.path !== `/users/${req.user._id}`)) return res.status(403).json({ message: "Você só pode editar sua própria conta." });
+    const isFollow = ["PUT", "DELETE"].includes(req.method) && /^\/users\/[a-fA-F0-9]{24}\/follow$/.test(req.path);
+    if (req.path.startsWith("/users") && !isFollow && (req.method !== "PUT" || req.path !== `/users/${req.user._id}`)) return res.status(403).json({ message: "Você só pode editar sua própria conta." });
     if (req.method === "DELETE" && req.path.startsWith("/likes/") && req.path.split("/")[3] !== String(req.user._id)) return res.status(403).json({ message: "Você só pode remover suas próprias curtidas." });
     const resource = req.path.split("/")[1];
     const allowedFields = {
@@ -48,6 +50,8 @@ app.use("/api", (req, res, next) => {
   }
   next();
 });
+app.get("/api/notifications", getNotifications);
+app.patch("/api/notifications/read", readNotifications);
 app.use("/api/users", userRoutes);
 app.use("/api/books", bookRoutes);
 app.use("/api/readings", readingRoutes);

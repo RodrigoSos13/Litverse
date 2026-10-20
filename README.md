@@ -90,3 +90,12 @@ Em Docker, use o `.env` da raiz; ao executar scripts ou servidor diretamente em 
 Na inicialização, antes de abrir a API, o backend valida as chaves contra os registros cifrados existentes, preenche o índice HMAC dos usuários antigos, remove apenas o índice legado de e-mail e converte os campos em texto aberto das contas e cadastros pendentes. A migração pode ser repetida e preserva IDs, senhas, tokens de confirmação e sessões. Falhas de chave ou inconsistências interrompem a inicialização. Em instalações com várias instâncias, pare as versões antigas antes de migrar: elas ainda gravam o formato legado. Para aplicar no ambiente local: `docker compose up -d --build --force-recreate backend`.
 
 A migração remove o texto aberto dos documentos atuais; backups antigos, históricos do banco e blocos antigos de armazenamento não são apagados por essa mudança. A criptografia protege uma cópia do banco sem as chaves; o backend com acesso às chaves pode descriptografar, e o provedor de e-mail recebe o destinatário para fazer a entrega.
+
+
+Para desativar somente a sincronização automática, mantenha a chave do Google Books e defina no `.env` da raiz:
+
+```dotenv
+CATALOG_SYNC_ENABLED=false
+```
+
+Aplique com `docker compose up -d catalog-sync`. O processo fica ocioso, sem consultar MongoDB ou Google Books, e a importação manual por `docker compose exec backend npm run catalog:sync -- "inauthor:Carl Sagan"` continua disponível. Para reativar, altere para `true` e execute novamente o comando do Compose. Na primeira atualização do código, use `docker compose up -d --build catalog-sync`. Alterações no `.env` exigem recriar o serviço com `up -d`; apenas `restart` não recarrega as variáveis.

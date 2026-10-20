@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import Notifications from "./Notifications";
 import SearchBar from "./SearchBar";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -34,13 +35,16 @@ function MainLayout() {
           <div className="col-start-2 row-start-1 flex items-center justify-end gap-3 lg:col-start-3 lg:gap-5">
             <NavLink
               to="/create-book"
+              aria-label="Adicionar livro"
+              title="Adicionar livro"
               className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-forest px-3 text-sm font-semibold text-white outline-none transition hover:bg-berry focus-visible:ring-2 focus-visible:ring-copper focus-visible:ring-offset-2 focus-visible:ring-offset-midnight sm:px-4"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" className="hidden h-4 w-4 sm:block">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" className="h-4 w-4">
                 <path d="M12 5v14M5 12h14" />
               </svg>
-              Adicionar livro
+              <span className="hidden sm:inline">Adicionar livro</span>
             </NavLink>
+            <Notifications currentUserId={currentUserId} />
             <NavLink
               to={currentUserId ? `/users/${currentUserId}` : "/"}
               aria-label={`Perfil de @${user.usuario}`}

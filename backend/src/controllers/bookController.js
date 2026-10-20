@@ -49,12 +49,14 @@ export async function getBooks(req, res) {
 export async function getCatalog(req, res) {
   try {
     const search = req.query.search ?? "";
+    const genre = req.query.genre ?? "";
     const page = req.query.page === undefined ? 1 : Number(req.query.page);
-    if (typeof search !== "string" || search.length > 200 || !Number.isInteger(page) || page < 1 || page > 10000) {
+    if (typeof genre !== "string" || genre.length > 200 || typeof search !== "string" || search.length > 200 || !Number.isInteger(page) || page < 1 || page > 10000) {
       return res.status(400).json({ message: "Informe uma busca e uma página válidas." });
     }
     const filter = { idioma: { $in: [/^pt(?:-(?:br|pt))?$/i, /^portugu[eê]s$/i, /^portuguese$/i, /^en(?:-[a-z]{2})?$/i, /^english$/i, /^ingl[eê]s$/i] } };
     if (search.trim()) Object.assign(filter, indexedBookSearchFilter(search));
+    if (genre.trim()) filter.genero = genre.trim();
     const pageSize = 16;
     const books = await Book.find(filter)
       .select("-searchTokens -titleTokens -authorTokens -isbnSearch -catalogVersion")
@@ -96,5 +98,14 @@ export async function getBookById(req, res) {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+}
+
+export async function getGenres(_req, res) {
+  try {
+    const genres = await Book.distinct("genero", { idioma: { $in: [/^pt(?:-(?:br|pt))?$/i, /^portugu[eê]s$/i, /^portuguese$/i, /^en(?:-[a-z]{2})?$/i, /^english$/i, /^ingl[eê]s$/i] } });
+    res.json(genres.filter(value => typeof value === "string" && value.trim()).sort((a, b) => a.localeCompare(b, "pt-BR")));
+  } catch {
+    res.status(503).json({ message: "Não foi possível carregar os gêneros. Tente novamente." });
   }
 }

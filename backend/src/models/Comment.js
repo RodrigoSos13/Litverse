@@ -12,6 +12,7 @@ const commentSchema = new mongoose.Schema(
       ref: "Usuario",
       required: true,
     },
+    curtidas: [{ type: mongoose.Schema.Types.ObjectId, ref: "Usuario" }],
     texto: {
       type: String,
       required: true,

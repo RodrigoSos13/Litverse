@@ -3,6 +3,7 @@ import { useOutletContext, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import PostCard from "../components/PostCard";
 import CreatePostPage from "./CreatePostPage";
+import CommunitySidebar from "../components/CommunitySidebar";
 import CommunityPeople from "../components/CommunityPeople";
 import BookCatalog from "../components/BookCatalog";
 
@@ -18,6 +19,8 @@ function HomePage() {
   const [postsError, setPostsError] = useState(false);
   const [postsLoading, setPostsLoading] = useState(true);
   const [posts, setPosts] = useState([]);
+  const [postType, setPostType] = useState("all");
+  const [onlyMine, setOnlyMine] = useState(false);
   const { currentUserId, search } = useOutletContext();
 
   useEffect(() => {
@@ -56,6 +59,11 @@ function HomePage() {
     finally { if (!signal?.aborted) setPostsLoading(false); }
   }
 
+  const visiblePosts = posts.filter(post =>
+    (postType === "all" || post.tipo === postType) &&
+    (!onlyMine || String(post.usuario?._id || post.usuario) === String(currentUserId))
+  );
+
   return (
     <div className="mx-auto max-w-6xl">
 
@@ -91,7 +99,7 @@ function HomePage() {
             {label}
           </button>)}
         </div>
-        <div className="overflow-hidden" style={{ touchAction: "pan-y" }} onTouchStart={event => { touch.current = { x: event.touches[0].clientX, y: event.touches[0].clientY }; }} onTouchCancel={() => { touch.current = null; }} onTouchEnd={event => {
+        <div className="-mx-4 overflow-hidden px-4" style={{ touchAction: "pan-y" }} onTouchStart={event => { touch.current = { x: event.touches[0].clientX, y: event.touches[0].clientY }; }} onTouchCancel={() => { touch.current = null; }} onTouchEnd={event => {
           if (!touch.current) return;
           const dx = event.changedTouches[0].clientX - touch.current.x;
           const dy = event.changedTouches[0].clientY - touch.current.y;
@@ -103,20 +111,26 @@ function HomePage() {
               <BookCatalog query={search} />
             </section>
             <section role="tabpanel" id="home-panel-1" aria-labelledby="home-tab-1" aria-hidden={activeTab !== 1} inert={activeTab === 1 ? undefined : ""} tabIndex={activeTab === 1 ? 0 : -1} className={`w-full min-w-0 shrink-0 ${activeTab === 1 ? "" : "max-h-0 overflow-hidden"}`}>
-        <div className="w-full min-w-0 pb-24">
-          {activeTab === 1 && <CommunityPeople currentUserId={currentUserId} onSearchChange={setCommunitySearching} />}
-          <div hidden={communitySearching} className="columns-1 gap-5 lg:columns-2">
-            {posts.map((post) => (
-              <div key={post._id} className="mb-5 break-inside-avoid-column">
-                <PostCard post={post} currentUserId={currentUserId} fullWidth onDeleted={id => setPosts(current => current.filter(post => post._id !== id))} />
+        <div className="community-layout w-full min-w-0 pb-24">
+          <div className="min-w-0">
+          <div id="community-search" className="scroll-mt-28">
+          {activeTab === 1 && <CommunityPeople currentUserId={currentUserId} onSearchChange={setCommunitySearching} postType={postType} onlyMine={onlyMine} />}
+          </div>
+          <div hidden={communitySearching} className="space-y-5">
+            {(postType !== "all" || onlyMine) && <div className="flex items-center justify-between gap-3 px-1 text-xs text-mist"><span aria-live="polite">{visiblePosts.length} publicações encontradas{onlyMine ? " entre suas publicações" : ""}</span><button type="button" onClick={() => { setPostType("all"); setOnlyMine(false); }} className="rounded text-copper hover:text-glow">Limpar filtros</button></div>}
+            {visiblePosts.map((post) => (
+              <div key={post._id} className="min-w-0">
+                <PostCard post={post} currentUserId={currentUserId} fullWidth feedPreview onDeleted={id => setPosts(current => current.filter(post => post._id !== id))} />
               </div>
             ))}
           </div>
           <div hidden={communitySearching} className="space-y-3">
             {postsLoading && <p role="status" className="text-sm text-mist">Carregando publicações…</p>}
             {postsError && <div role="alert" className="text-sm text-mist">Não foi possível carregar as publicações. <button type="button" onClick={() => loadPosts()} className="text-copper underline">Tentar novamente</button></div>}
-            {!postsLoading && !postsError && posts.length === 0 && <p className="text-sm text-mist">Ainda não há publicações. Compartilhe sua primeira leitura!</p>}
+            {!postsLoading && !postsError && visiblePosts.length === 0 && <p role="status" className="text-sm text-mist">{posts.length ? "Nenhuma publicação corresponde aos filtros selecionados." : "Ainda não há publicações. Compartilhe sua primeira leitura!"}</p>}
           </div>
+          </div>
+          {activeTab === 1 && <CommunitySidebar currentUserId={currentUserId} postType={postType} onTypeChange={setPostType} onlyMine={onlyMine} onOnlyMineChange={setOnlyMine} />}
         </div>
             </section>
           </div>

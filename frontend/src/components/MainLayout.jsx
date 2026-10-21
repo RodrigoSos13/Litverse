@@ -22,12 +22,12 @@ function MainLayout() {
     <div className="min-h-screen bg-[linear-gradient(180deg,#0b1324_0%,#09111f_55%,#070d18_100%)] text-ink">
       <header className="relative z-30 border-b border-white/10 bg-midnight/95 backdrop-blur">
         <div className="mx-auto grid max-w-7xl grid-cols-[auto_1fr] items-center gap-x-3 gap-y-4 px-4 py-4 sm:gap-x-6 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-x-10 lg:py-5">
-          <NavLink to="/" aria-label="LitVerse — página inicial" onClick={event => {
+          <NavLink to="/" aria-label="litverso — página inicial" onClick={event => {
             if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
             setHomeVisit(visit => visit + 1);
             window.scrollTo({ top: 0, behavior: "instant" });
           }} className="rounded-sm font-display text-2xl font-bold tracking-tight text-white outline-none focus-visible:ring-2 focus-visible:ring-copper sm:text-3xl">
-            LitVerse
+            litverso
           </NavLink>
 
           <SearchBar key={homeVisit} value={search} onSubmit={handleSearchSubmit} />

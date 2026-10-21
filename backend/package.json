@@ -1,7 +1,7 @@
 {
   "name": "litverse-backend",
   "version": "1.0.0",
-  "description": "Backend API for LitVerse literary social network",
+  "description": "Backend API for litverso literary social network",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
@@ -11,6 +11,7 @@
     "seed": "node src/seed.js",
     "test": "node --test",
     "user:set-password": "node scripts/set-password.js",
+    "synopses:refresh": "node scripts/refresh-synopses.js",
     "catalog:sync": "node src/catalogWorker.js --once"
   },
   "dependencies": {

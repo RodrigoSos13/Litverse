@@ -9,7 +9,7 @@ export function AuthProvider({ children }) {
     setLoading(true);
     setError("");
     try { const response = await api.get("/auth/me"); setUser(response.data); }
-    catch (err) { if (err.response?.status !== 401) setError("Não foi possível conectar ao LitVerse. Verifique sua conexão e tente novamente."); }
+    catch (err) { if (err.response?.status !== 401) setError("Não foi possível conectar ao litverso. Verifique sua conexão e tente novamente."); }
     finally { setLoading(false); }
   }
   useEffect(() => {

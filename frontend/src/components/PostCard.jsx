@@ -5,7 +5,7 @@ import api from "../services/api";
 import PostText from "./PostText";
 import BookCover from "./BookCover";
 
-function PostCard({ post, currentUserId, fullWidth = false, onPinned, onDeleted }) {
+function PostCard({ post, currentUserId, fullWidth = false, feedPreview = false, onPinned, onDeleted }) {
   const [deleted, setDeleted] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const dialog = useRef(null);
@@ -55,6 +55,8 @@ function PostCard({ post, currentUserId, fullWidth = false, onPinned, onDeleted 
   const [liked, setLiked] = useState(Boolean(post.curtido));
   const [likeCount, setLikeCount] = useState(post.totalCurtidas || 0);
   const [comments, setComments] = useState([]);
+  const commentLikesPending = useRef(new Set());
+  const [likingComments, setLikingComments] = useState(new Set());
   const [commentCount, setCommentCount] = useState(post.totalComentarios || 0);
   const showComments = expanded;
   const [loadingComments, setLoadingComments] = useState(false);
@@ -93,6 +95,22 @@ function PostCard({ post, currentUserId, fullWidth = false, onPinned, onDeleted 
     } catch {
       setError("Não foi possível atualizar sua curtida. Tente novamente.");
     } finally { setLiking(false); }
+  }
+
+  async function handleCommentLike(comment) {
+    if (!currentUserId || commentLikesPending.current.has(comment._id)) return;
+    commentLikesPending.current.add(comment._id);
+    setLikingComments(new Set(commentLikesPending.current));
+    setError("");
+    try {
+      const { data } = await api[comment.curtido ? "delete" : "put"](`/comments/${comment._id}/like`);
+      setComments(current => current.map(item => item._id === data._id ? data : item));
+    } catch {
+      setError("Não foi possível atualizar a curtida do comentário. Tente novamente.");
+    } finally {
+      commentLikesPending.current.delete(comment._id);
+      setLikingComments(new Set(commentLikesPending.current));
+    }
   }
 
   async function handleComment(event) {
@@ -197,12 +215,13 @@ function PostCard({ post, currentUserId, fullWidth = false, onPinned, onDeleted 
         </p>
       )}
 
-      <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-300"><PostText text={post.texto} /></p>
+      <p className={`mt-4 whitespace-pre-line break-words text-sm leading-6 text-slate-300 ${feedPreview && !expanded ? "line-clamp-5" : ""}`}><PostText text={post.texto} /></p>
+      {feedPreview && !expanded && ((post.texto?.length || 0) > 280 || (post.texto?.split("\n").length || 0) > 5) && <button type="button" onClick={openPost} aria-haspopup="dialog" className="mt-2 rounded text-xs font-semibold text-copper hover:text-glow">Continuar lendo <span aria-hidden="true">↗</span></button>}
 
       {images.length > 0 && (
-        <div className={`mt-4 grid gap-1 overflow-hidden rounded-xl border border-line/60 bg-midnight ${images.length > 1 ? "aspect-square grid-cols-2 grid-rows-2" : "grid-cols-1"}`}>
+        <div style={feedPreview && !expanded ? { maxHeight: 420 } : undefined} className={`mt-4 grid gap-1 overflow-hidden rounded-xl border border-line/60 bg-midnight ${images.length > 1 ? "aspect-square grid-cols-2 grid-rows-2" : "grid-cols-1"}`}>
           {images.map((src, index) => <a key={index} onClick={event => { if (!expanded) { event.preventDefault(); openPost(); } }} href={src} target="_blank" rel="noreferrer" aria-label={`Abrir foto ${index + 1}`} className={`relative block min-h-0 min-w-0 overflow-hidden ${images.length === 2 || (images.length === 3 && index === 0) ? "row-span-2" : ""}`}>
-            <img src={src} alt={`Imagem ${index + 1} da publicação`} loading="lazy" className={images.length === 1 ? "block h-auto w-full" : "absolute inset-0 block h-full w-full object-cover"} />
+            <img src={src} alt={`Imagem ${index + 1} da publicação`} loading="lazy" className={images.length === 1 ? (feedPreview && !expanded ? "block max-h-[420px] w-full object-contain" : "block h-auto w-full") : "absolute inset-0 block h-full w-full object-cover"} />
           </a>)}
         </div>
       )}
@@ -222,14 +241,28 @@ function PostCard({ post, currentUserId, fullWidth = false, onPinned, onDeleted 
 
       {expanded && <section aria-label="Comentários" className="flex min-h-0 min-w-0 flex-col border-t border-line bg-panel md:min-h-0 md:border-l md:border-t-0">
       <h3 className="shrink-0 pl-4 pr-16 pt-4 font-display text-2xl text-ink sm:pl-6 sm:pr-16 sm:pt-6">Comentários <span className="text-base text-mist">({commentCount})</span></h3>
-      {showComments && <div id={`comments-${post._id}`} className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain border-t border-line/60 p-4 sm:p-6 md:max-h-none">
+      {showComments && <div id={`comments-${post._id}`} className="mt-3 min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain border-t border-line/60 p-4 sm:p-6 md:max-h-none">
         {loadingComments && <p role="status" className="text-xs text-mist">Carregando comentários…</p>}
         {commentsError && <div role="alert" className="text-sm text-red-300">{commentsError}<button type="button" onClick={() => setRetry(value => value + 1)} className="ml-2 underline">Tentar novamente</button></div>}
         {!loadingComments && !commentsError && !comments.length && <p className="text-sm text-mist">Comece a conversa. Deixe o primeiro comentário.</p>}
-        {comments.map(comment => <div key={comment._id} className="rounded-xl bg-panelSoft/60 px-4 py-3">
-          <Link to={`/users/${comment.usuario?._id || comment.usuario}`} className="text-sm font-semibold text-ink hover:text-copper">{comment.usuario?.nome || "Leitor"}</Link>
-          <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-mist">{comment.texto}</p>
-        </div>)}
+        {comments.map(comment => <article key={comment._id} className="flex items-start gap-3">
+          <Link to={`/users/${comment.usuario?._id || comment.usuario}`} aria-label={`Perfil de ${comment.usuario?.nome || "Leitor"}`} className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-forest/20 text-sm font-semibold text-glow ring-1 ring-line/50">
+            {comment.usuario?.nome?.slice(0, 1).toUpperCase() || "L"}
+            {comment.usuario?.urlAvatar && <img src={comment.usuario.urlAvatar} alt="" onError={event => { event.currentTarget.style.display = "none"; }} className="absolute inset-0 h-full w-full object-cover" />}
+          </Link>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <Link to={`/users/${comment.usuario?._id || comment.usuario}`} className="text-sm font-semibold text-ink transition hover:text-copper">{comment.usuario?.nome || "Leitor"}</Link>
+              {comment.createdAt && <time dateTime={comment.createdAt} title={new Date(comment.createdAt).toLocaleString("pt-BR")} className="text-[11px] text-mist/60">{new Date(comment.createdAt).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })}</time>}
+            </div>
+            <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">{comment.texto}</p>
+            <button type="button" onClick={() => handleCommentLike(comment)} disabled={!currentUserId || likingComments.has(comment._id)} aria-pressed={Boolean(comment.curtido)} aria-label={`${comment.curtido ? "Descurtir" : "Curtir"} comentário de ${comment.usuario?.nome || "Leitor"}`} className={`-ml-2 mt-1 inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper disabled:opacity-50 ${comment.curtido ? "text-copper" : "text-mist/70 hover:text-copper"}`}>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill={comment.curtido ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" /></svg>
+              <span>{comment.curtido ? "Curtido" : "Curtir"}</span>
+              {comment.totalCurtidas > 0 && <span className="tabular-nums">· {comment.totalCurtidas}</span>}
+            </button>
+          </div>
+        </article>)}
       </div>}
 
       {currentUserId && <form className="sticky bottom-0 z-10 flex shrink-0 gap-2 border-t border-line bg-panel p-4 sm:p-6" onSubmit={handleComment}>
@@ -243,7 +276,7 @@ function PostCard({ post, currentUserId, fullWidth = false, onPinned, onDeleted 
   );
 
   return <>
-    <div className="p-2">
+    <div className={feedPreview ? "min-w-0" : "p-2"}>
       {expanded ? <div aria-hidden="true" className="w-full rounded-2xl border border-line bg-panel" style={{ height: cardHeight }} /> : card}
     </div>
     {createPortal(<dialog ref={dialog} aria-labelledby={`post-title-${post._id}`} onCancel={event => { event.preventDefault(); setExpanded(false); }} className="m-auto h-[85dvh] max-h-[90dvh] w-[calc(100%-2rem)] max-w-6xl overflow-hidden open:flex open:flex-col rounded-3xl border border-line bg-panel p-0 text-ink shadow-card backdrop:bg-black/70 backdrop:backdrop-blur-sm">

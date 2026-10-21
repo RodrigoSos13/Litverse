@@ -15,7 +15,7 @@ const example = {
   },
 };
 
-test("normaliza metadados sem misturar avaliações externas com as do LitVerse", () => {
+test("normaliza metadados sem misturar avaliações externas com as do litverso", () => {
   const book = normalizeVolume(example);
   assert.equal(book.titulo, "Livro & leitura");
   assert.equal(book.isbn, "9781234567890");
@@ -297,4 +297,13 @@ test("normaliza espaços após inauthor e mantém filtro exclusivo por autor", a
   } });
   const result = await client.search({ query: "inauthor: Carl Sagan" });
   assert.deepEqual(result.livros.map(book => book.googleBooksId), ["cosmos_sagan"]);
+});
+
+test("preserva a sinopse formatada separada do resumo em texto simples", () => {
+  const description = '<p>Uma <strong>história</strong> com <em>ênfase</em>.<br>Outra linha.</p>\n<p>Novo parágrafo.</p>';
+  const book = normalizeVolume({ ...example, volumeInfo: { ...example.volumeInfo, description } });
+  assert.equal(book.descricaoFormatada, description);
+  assert.doesNotMatch(book.descricao, /<[^>]*>/);
+  assert.equal(normalizeVolume({ id: "empty", volumeInfo: { title: "Livro" } }).descricaoFormatada, "");
+  assert.equal(normalizeVolume({ ...example, volumeInfo: { ...example.volumeInfo, description: "x".repeat(21000) } }).descricaoFormatada.length, 20000);
 });

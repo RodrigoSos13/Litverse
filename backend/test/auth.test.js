@@ -30,7 +30,7 @@ before(async () => {
   process.env.EMAIL_ENCRYPTION_KEY = "11".repeat(32);
   process.env.EMAIL_LOOKUP_KEY = "22".repeat(32);
   process.env.RESEND_API_KEY = "test-key";
-  process.env.EMAIL_FROM = "LitVerse <test@example.com>";
+  process.env.EMAIL_FROM = "litverso <test@example.com>";
   process.env.EMAIL_CODE_SECRET = "test-secret-for-codes-at-least-32-characters";
   globalThis.fetch = (url, options) => {
     if (String(url) === "https://api.resend.com/emails") {
@@ -137,6 +137,28 @@ test("feed e perfil mantêm curtida e comentários após recarregar", async () =
   const unliked = findPost(await request("/posts"));
   assert.equal(unliked.curtido, false);
   assert.equal(unliked.totalCurtidas, 0);
+});
+test("curtidas em comentários persistem, não duplicam e usam o usuário autenticado", async () => {
+  const created = await request("/comments", { method: "POST", body: { publicacao: post._id, texto: "Uma boa conversa" } });
+  const path = `/comments/${created.data._id}/like`;
+  assert.equal(created.data.totalCurtidas, 0);
+  const liked = await request(path, { method: "PUT", body: { usuario: otherUser._id } });
+  assert.equal(liked.status, 200);
+  assert.equal(liked.data.curtido, true);
+  assert.equal(liked.data.totalCurtidas, 1);
+  const stored = await Comment.findById(created.data._id);
+  assert.deepEqual(stored.curtidas.map(String), [String(post.usuario._id)]);
+  await Promise.all([request(path, { method: "PUT" }), request(path, { method: "PUT" })]);
+  const comments = await request(`/comments?post=${post._id}`);
+  const reloaded = comments.data.find(comment => comment._id === created.data._id);
+  assert.equal(reloaded.totalCurtidas, 1);
+  assert.equal(reloaded.curtido, true);
+  assert.equal(reloaded.curtidas, undefined);
+  assert.equal((await request(path, { method: "DELETE" })).data.totalCurtidas, 0);
+  assert.equal((await request(path, { method: "DELETE" })).data.curtido, false);
+  assert.equal((await request(path, { method: "PUT", session: "" })).status, 401);
+  assert.equal((await request("/comments/invalid/like", { method: "PUT" })).status, 400);
+  assert.equal((await request(`/comments/${new mongoose.Types.ObjectId()}/like`, { method: "PUT" })).status, 404);
 });
 test("somente o autor apaga publicações, removendo comentários e curtidas", async () => {
   const { Post } = await import("../src/models/Post.js");

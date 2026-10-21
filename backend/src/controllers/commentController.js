@@ -1,5 +1,23 @@
+import mongoose from "mongoose";
 import { Comment } from "../models/Comment.js";
 import { Post } from "../models/Post.js";
+
+function presentComment(comment, userId) {
+  const { curtidas = [], ...data } = comment.toObject();
+  return { ...data, totalCurtidas: curtidas.length, curtido: curtidas.some(id => String(id) === String(userId)) };
+}
+
+export async function updateCommentLike(req, res) {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Comentário inválido." });
+  try {
+    const update = req.method === "PUT" ? { $addToSet: { curtidas: req.user._id } } : { $pull: { curtidas: req.user._id } };
+    const comment = await Comment.findByIdAndUpdate(req.params.id, update, { new: true }).populate("usuario", "nome usuario urlAvatar");
+    if (!comment) return res.status(404).json({ message: "Comentário não encontrado." });
+    res.json(presentComment(comment, req.user._id));
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
 
 export async function createComment(req, res) {
   try {
@@ -11,7 +29,7 @@ export async function createComment(req, res) {
       "nome usuario urlAvatar"
     );
 
-    res.status(201).json(populatedComment);
+    res.status(201).json(presentComment(populatedComment, req.user._id));
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -25,7 +43,7 @@ export async function getComments(req, res) {
       .populate("usuario", "nome usuario urlAvatar")
       .sort({ createdAt: -1 });
 
-    res.json(comments);
+    res.json(comments.map(comment => presentComment(comment, req.user._id)));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

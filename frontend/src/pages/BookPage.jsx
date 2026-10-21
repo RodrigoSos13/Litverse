@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import api from "../services/api";
+import BookDescription from "../components/BookDescription";
 import BookCover from "../components/BookCover";
 import StarRating from "../components/StarRating";
 import FanartComposer from "../components/FanartComposer";
@@ -20,6 +21,7 @@ function BookPage() {
   const { id } = useParams();
   const { currentUserId } = useOutletContext();
   const [data, setData] = useState(null);
+  const [expandedDescription, setExpandedDescription] = useState(false);
   const [readingForm, setReadingForm] = useState(initialReadingForm);
   const [savedStatus, setSavedStatus] = useState(null);
   const [savingReading, setSavingReading] = useState(false);
@@ -52,6 +54,7 @@ function BookPage() {
   }
 
   useEffect(() => {
+    setExpandedDescription(false);
     loadBookPage().catch(console.error);
   }, [id]);
 
@@ -151,10 +154,10 @@ function BookPage() {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-6 rounded-[2rem] border border-line bg-panel p-8 shadow-card lg:grid-cols-[260px_1fr]">
-        <div>
-          <div className="relative flex h-96 items-center justify-center rounded-3xl bg-panelSoft p-4">
-            <BookCover url={data.livro.urlCapa} title={data.livro.titulo} className="h-full w-full rounded-2xl object-contain" />
+      <section className="book-detail">
+        <aside className="book-detail-sidebar">
+          <div className="book-cover-stage">
+            <BookCover url={data.livro.urlCapa} title={data.livro.titulo} className="book-detail-cover" />
             <div
               className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-copper/30 bg-midnight/90 px-3 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur-sm"
               aria-label={data.livro.totalAvaliacoes > 0 ? `Avaliação média: ${data.livro.mediaAvaliacoes} de 5, ${data.livro.totalAvaliacoes} ${data.livro.totalAvaliacoes === 1 ? "avaliação" : "avaliações"}` : "Sem avaliações"}
@@ -166,7 +169,8 @@ function BookPage() {
             </div>
           </div>
 
-          <dl aria-label="Leituras da comunidade" className="mt-5 space-y-3 px-1">
+          <p className="book-community-label">Na comunidade</p>
+          <dl aria-label="Leituras da comunidade" className="space-y-3 px-1">
             {[
               { key: "lido", label: "Já leram", icon: <><path d="M20 11.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9" /><path d="m10 9 3 3 8-8M4 17h16" /></> },
               { key: "lendo", label: "Lendo agora", icon: <><path d="M12 5v15M12 5C9 3 5 3 3 4v15c3-1 6-1 9 1 3-2 6-2 9-1V4c-2-1-6-1-9 1Z" /></> },
@@ -213,7 +217,7 @@ function BookPage() {
                     aria-controls="book-reading-popover"
                     className="rounded-xl border border-line bg-panelSoft px-3 py-2.5 text-xs font-semibold text-white transition hover:border-mist/50"
                   >
-                    Adicionar
+                    {savedStatus ? statusLabels[savedStatus] : "Adicionar à lista"}
                   </button>
                 </div>
 
@@ -264,44 +268,47 @@ function BookPage() {
               </div>
             )}
           </div>
-        </div>
+        </aside>
 
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-copper">
-            {data.livro.genero}
-          </p>
-          <h1 className="mt-3 font-display text-5xl">{data.livro.titulo}</h1>
-          <p className="mt-2 text-lg text-mist">{data.livro.autor}</p>
-          <div className="mt-5 grid gap-3 text-sm text-mist md:grid-cols-2">
-            {data.livro.totalPaginas && (
-              <span className="rounded-2xl bg-panelSoft px-4 py-3">
-                Paginas: {data.livro.totalPaginas}
-              </span>
-            )}
-            {data.livro.editora && (
-              <span className="rounded-2xl bg-panelSoft px-4 py-3">
-                Editora: {data.livro.editora}
-              </span>
-            )}
-            {data.livro.anoPublicacao && (
-              <span className="rounded-2xl bg-panelSoft px-4 py-3">
-                Publicacao: {data.livro.anoPublicacao}
-              </span>
-            )}
-            {data.livro.idioma && (
-              <span className="rounded-2xl bg-panelSoft px-4 py-3">
-                Idioma: {data.livro.idioma}
-              </span>
-            )}
-            {data.livro.isbn && (
-              <span className="rounded-2xl bg-panelSoft px-4 py-3 md:col-span-2">
-                ISBN: {data.livro.isbn}
-              </span>
-            )}
-          </div>
-          <p className="mt-5 max-w-3xl text-justify text-sm leading-7 text-slate-300">{data.livro.descricao}</p>
+        <div className="book-detail-content">
+          <header className="book-detail-header">
+            <div className="book-detail-title-row">
+              <h1 className="book-detail-title">{data.livro.titulo}</h1>
+              <p className="book-detail-eyebrow">{data.livro.genero || "Literatura"}</p>
+            </div>
+            <p className="book-detail-author"><span>por</span> {data.livro.autor}</p>
+          </header>
 
+          <section className="book-synopsis" aria-labelledby="book-synopsis-heading">
+            <h2 id="book-synopsis-heading" className="book-section-title">Sinopse</h2>
+            <div id="book-description" className={`book-description ${!expandedDescription && data.livro.descricao?.length > 850 ? "book-description-collapsed" : ""}`}>
+              <BookDescription text={data.livro.descricaoFormatada || data.livro.descricao || "Ainda não há uma sinopse disponível para este livro."} />
+            </div>
+            {data.livro.descricao?.length > 850 && (
+              <button type="button" className="book-description-toggle" aria-expanded={expandedDescription} aria-controls="book-description" onClick={() => setExpandedDescription(current => !current)}>
+                {expandedDescription ? "Mostrar menos" : "Ler sinopse completa"}
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={`h-4 w-4 transition-transform ${expandedDescription ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+            )}
+          </section>
 
+          <section className="book-edition" aria-labelledby="book-edition-heading">
+            <h2 id="book-edition-heading" className="book-section-title">Sobre esta edição</h2>
+            <dl className="book-edition-grid">
+              {[
+                { label: "Páginas", value: data.livro.totalPaginas },
+                { label: "Editora", value: data.livro.editora },
+                { label: "Publicação", value: data.livro.anoPublicacao },
+                { label: "Idioma", value: ({ "pt-BR": "Português (Brasil)", pt: "Português", en: "Inglês", es: "Espanhol" })[data.livro.idioma] || data.livro.idioma },
+                { label: "ISBN", value: data.livro.isbn },
+              ].filter(({ value }) => value).map(({ label, value }) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         </div>
       </section>
 
@@ -335,8 +342,8 @@ function BookPage() {
             </article>
           ))}
           {fanarts.length === 0 && (
-            <p className="col-span-full rounded-3xl border border-dashed border-line bg-panelSoft p-5 text-sm text-mist">
-              Ainda nao ha fanarts para este livro.
+            <p className="col-span-full py-2 text-xs text-mist/70">
+              Nenhuma fanart por aqui ainda.
             </p>
           )}
         </div>

@@ -44,6 +44,7 @@ export function normalizeVolume(volume) {
     titulo: plainText(info.title, 500),
     autor: Array.isArray(info.authors) ? info.authors.map(author => plainText(author, 200)).filter(Boolean).join(", ") || "Autor não informado" : "Autor não informado",
     genero: Array.isArray(info.categories) ? plainText(info.categories[0], 200) || "Não informado" : "Não informado",
+    descricaoFormatada: typeof info.description === "string" ? info.description.slice(0, 20000) : "",
     descricao: plainText(info.description) || "Sinopse não disponível para esta edição.",
     urlCapa: httpsUrl(info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail),
     editora: plainText(info.publisher, 300),

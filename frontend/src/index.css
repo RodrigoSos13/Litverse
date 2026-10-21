@@ -80,3 +80,38 @@ body {
 }
 button:focus-visible, a:focus-visible { outline: 2px solid #d7a780; outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+
+.book-detail { display:grid; gap:2.5rem; padding:clamp(1.25rem,4vw,3rem); border:1px solid #29374d; border-radius:1.75rem; background:radial-gradient(ellipse at 0 0,rgba(216,162,74,.055),transparent 45%),linear-gradient(145deg,#142032,#101b2b); box-shadow:0 24px 64px #02061740; }
+.book-detail-sidebar,.book-detail-content { min-width:0; }
+.book-cover-stage { position:relative; display:flex; align-items:center; justify-content:center; height:360px; padding:1.75rem 1.25rem; border:1px solid #b7c5d814; border-radius:1.25rem; background:radial-gradient(ellipse at center,#344052,#1b283b 55%,#172335); }
+.book-detail-cover { max-width:100%; height:100%; object-fit:contain; border-radius:3px 7px 7px 3px; box-shadow:8px 16px 25px #0006; }
+.book-community-label { margin:1.5rem 0 1rem; padding:0 .25rem; font-size:.625rem; text-transform:uppercase; letter-spacing:.18em; color:#92a2b9; font-weight:600; }
+.book-detail-header { padding-bottom:1.75rem; border-bottom:1px solid #b7c5d81f; }
+.book-detail-eyebrow { display:inline-block; padding:.375rem .75rem; border:1px solid #d8a24a33; border-radius:999px; background:#d8a24a0f; color:#d8b477; font-size:.625rem; font-weight:600; letter-spacing:.16em; text-transform:uppercase; }
+.book-detail-title-row { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:1rem 1.5rem; }
+.book-detail-title-row .book-detail-eyebrow { flex-shrink:0; margin-left:auto; }
+.book-detail-title { margin-top:0; max-width:22ch; font-family:Georgia,serif; font-size:clamp(2rem,3.6vw,3.25rem); font-weight:400; line-height:1.13; letter-spacing:-.035em; text-wrap:balance; overflow-wrap:anywhere; }
+.book-detail-author { margin-top:1rem; font-size:1rem; color:#d3dce9; }
+.book-detail-author span { margin-right:.25rem; color:#8f9eb3; font-size:.875rem; }
+.book-synopsis { padding-top:1.75rem; }
+.book-section-title { margin-bottom:1rem; font-size:.875rem; font-weight:600; letter-spacing:.015em; color:#f3f7fd; }
+.book-description { max-width:68ch; font-size:.9375rem; line-height:1.95; color:#b7c5d8; white-space:pre-line; overflow-wrap:anywhere; }
+.book-description-collapsed { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:7; overflow:hidden; }
+.book-description-toggle { display:inline-flex; align-items:center; gap:.5rem; margin-top:1rem; padding:.25rem 0; color:#d8b477; font-size:.8125rem; font-weight:600; }
+.book-description-toggle:hover { color:#ffe3c7; }
+.book-edition { margin-top:2rem; padding-top:1.5rem; border-top:1px solid #b7c5d81f; }
+.book-edition-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.25rem 1.5rem; }
+.book-edition-grid dt { color:#8f9eb3; font-size:.6875rem; margin-bottom:.4rem; }
+.book-edition-grid dd { color:#dce4ef; font-size:.8125rem; overflow-wrap:anywhere; }
+@media(min-width:768px) { .book-detail { grid-template-columns:240px minmax(0,1fr); } .book-edition-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media(min-width:1280px) { .book-detail { gap:3rem; grid-template-columns:260px minmax(0,1fr); } .book-cover-stage { height:390px; } }
+@media(max-width:767px) { .book-detail-sidebar { width:100%; max-width:320px; margin-inline:auto; } .book-detail { gap:2rem; } }
+.book-description-formatted p + p { margin-top:1em; }
+.book-description-formatted strong,.book-description-formatted b { font-weight:700; color:#e6edf7; }
+.book-description-formatted em,.book-description-formatted i { font-style:italic; }
+.book-description-formatted ul,.book-description-formatted ol { margin:.75em 0; padding-left:1.5em; }
+.book-description-formatted ul { list-style:disc; }
+.book-description-formatted ol { list-style:decimal; }
+.community-layout { display:grid; gap:1.5rem; align-items:start; }
+@media(min-width:1024px) { .community-layout { grid-template-columns:minmax(0,1fr) 280px; gap:2rem; } }
+@media(min-width:1280px) { .community-layout { grid-template-columns:minmax(0,760px) 300px; } }

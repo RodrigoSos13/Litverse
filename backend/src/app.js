@@ -26,7 +26,7 @@ app.use("/api/users", express.json({ limit: "512kb" }));
 app.use(express.json({ limit: "32kb" }));
 
 app.get("/api/health", (_req, res) => {
-  res.json({ message: "LitVerse API is running" });
+  res.json({ message: "litverso API is running" });
 });
 
 app.use("/api/auth", authRoutes);

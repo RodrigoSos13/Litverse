@@ -1,4 +1,4 @@
-# LitVerse
+# litverso
 
 Rede social literária para descobrir livros, organizar leituras e compartilhar resenhas e fanarts. Desenvolvida com React, Express e MongoDB.
 
@@ -61,7 +61,7 @@ Configure no `.env` da raiz (Docker) ou em `backend/.env` (execução direta):
 
 ```dotenv
 RESEND_API_KEY=<chave de envio do Resend>
-EMAIL_FROM=LitVerse <contato@seu-dominio.com>
+EMAIL_FROM=litverso <contato@seu-dominio.com>
 EMAIL_CODE_SECRET=<segredo aleatório de pelo menos 32 caracteres>
 ```
 

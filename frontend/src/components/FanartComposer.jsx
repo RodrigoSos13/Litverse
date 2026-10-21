@@ -77,7 +77,7 @@ export default function FanartComposer({ bookId, bookTitle, onPublished }) {
       {!open && error && <p role="alert" className="mb-4 text-sm text-red-300">{error}</p>}
       {!open ? (
         <button type="button" onClick={() => { setOpen(true); setSuccess(false); }} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-forest to-berry px-6 py-3 font-semibold text-white transition hover:brightness-110">
-          <span aria-hidden="true" className="text-xl">+</span> Publicar fanart
+          <span aria-hidden="true" className="text-xl">+</span> Adicionar fanart
         </button>
       ) : (
         <form onSubmit={publish} className="rounded-3xl border border-line bg-panel p-5 shadow-card sm:p-6">
@@ -108,7 +108,7 @@ export default function FanartComposer({ bookId, bookTitle, onPublished }) {
           {error && <p role="alert" className="mt-3 text-sm text-red-300">{error}</p>}
           <div className="mt-4 flex flex-wrap justify-end gap-3">
             <button type="button" disabled={busy} onClick={close} className="rounded-full border border-line px-5 py-3 text-sm text-mist disabled:opacity-50">Cancelar</button>
-            <button type="submit" disabled={busy || !image || !caption.trim()} className="rounded-full bg-gradient-to-r from-forest to-berry px-6 py-3 font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Publicando…" : "Publicar fanart"}</button>
+            <button type="submit" disabled={busy || !image || !caption.trim()} className="rounded-full bg-gradient-to-r from-forest to-berry px-6 py-3 font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Adicionando…" : "Adicionar fanart"}</button>
           </div>
         </form>
       )}

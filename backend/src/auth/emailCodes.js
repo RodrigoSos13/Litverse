@@ -48,8 +48,8 @@ export async function issueCode(email, purpose, payload) {
       method: "POST", signal: AbortSignal.timeout(10000),
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ from: process.env.EMAIL_FROM, to: [email],
-        subject: purpose === "register" ? "Confirme seu e-mail no LitVerse" : "Redefina sua senha no LitVerse",
-        text: `Seu código do LitVerse é: ${code}\n\nEle expira em 10 minutos e pode ser usado uma única vez. Não compartilhe este código. Se você não solicitou, ignore esta mensagem.`,
+        subject: purpose === "register" ? "Confirme seu e-mail no litverso" : "Redefina sua senha no litverso",
+        text: `Seu código do litverso é: ${code}\n\nEle expira em 10 minutos e pode ser usado uma única vez. Não compartilhe este código. Se você não solicitou, ignore esta mensagem.`,
       }),
     });
     if (!response.ok) throw new Error("EMAIL_SEND_FAILED");

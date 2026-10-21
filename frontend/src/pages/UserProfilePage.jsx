@@ -40,6 +40,10 @@ function UserProfilePage() {
   if (!profile) return <p role="status" className="py-16 text-center text-mist">Carregando perfil…</p>;
 
   const { usuario, leituras, posts } = profile;
+  const completedReadings = leituras.lido || [];
+  const readingsWithPages = completedReadings.filter(({ livro }) => Number.isFinite(livro?.totalPaginas) && livro.totalPaginas > 0);
+  const totalPagesRead = readingsWithPages.reduce((total, { livro }) => total + livro.totalPaginas, 0);
+  const missingPageCounts = completedReadings.length - readingsWithPages.length;
 
   return (
     <div className="mx-auto max-w-4xl space-y-10 pb-8">
@@ -86,16 +90,28 @@ function UserProfilePage() {
               </Link>;
             })}
           </div>
+          <div className="mt-4 flex items-start gap-4 rounded-xl border border-line bg-panel p-4 sm:p-5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-midnight/40 text-copper">
+              <svg aria-hidden="true" className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6M8 13h8M8 17h5" /></svg>
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-mist">Páginas lidas</p>
+              <p className="mt-1 text-3xl font-semibold tabular-nums text-white">{totalPagesRead.toLocaleString("pt-BR")}</p>
+              {missingPageCounts > 0 && <p className="mt-1 text-xs leading-relaxed text-mist">{missingPageCounts.toLocaleString("pt-BR")} {missingPageCounts === 1 ? "livro lido ainda não tem o número de páginas informado e não entrou na soma." : "livros lidos ainda não têm o número de páginas informado e não entraram na soma."}</p>}
+            </div>
+          </div>
         </section>
       </section>
 
-      <section className="mx-auto w-full max-w-[560px]">
+      <section className="w-full">
         <div className="mb-6 flex items-center justify-between"><h2 className="font-display text-2xl">Publicações</h2><span className="text-sm tabular-nums text-mist">{posts.length}</span></div>
         {posts.length === 0 && <p className="py-10 text-center text-sm text-mist">As próximas histórias compartilhadas aparecerão aqui.</p>}
-        <div className="space-y-4">
+        <div className="space-y-5">
           {posts.map((post) => (
-            <div key={post._id} id={`post-${post._id}`} className="scroll-mt-6"><PostCard
+            <div key={post._id} id={`post-${post._id}`} className="min-w-0 scroll-mt-6"><PostCard
               post={post}
+              fullWidth
+              feedPreview
               currentUserId={currentUserId}
               onDeleted={loadProfile}
               onPinned={loadProfile}
